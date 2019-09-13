@@ -1,6 +1,6 @@
 # visual-difference-bot
 
-> A GitHub App built with [Probot](https://github.com/probot/probot) that The visual difference bot
+> A GitHub App built with [Probot](https://github.com/probot/probot) that does commenting when visual difference checks fail.
 
 ## Setup
 
