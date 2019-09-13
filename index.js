@@ -3,17 +3,37 @@
  * @param {import('probot').Application} app
  */
 module.exports = app => {
-  // Your code here
-  app.log('Yay, the app was loaded!')
-
-  app.on('issues.opened', async context => {
-    const issueComment = context.issue({ body: 'Thanks for opening this issue!' })
-    return context.github.issues.createComment(issueComment)
+  app.on('check_run.completed', async context => {
+    if(context.payload.conclusion == 'failure') {
+      app.log('Oopsie daisy')
+      context.github.query(addComment, {
+        id: context.payload.check_suite.pull_requests.id,
+        body: 'It looks like that build failed.'
+      })
+    }
   })
-
-  // For more information on building apps:
-  // https://probot.github.io/docs/
-
-  // To get your app running against GitHub, see:
-  // https://probot.github.io/docs/development/
+  app.on('pull_request_review_comment', async context => {
+    if(context.payload.body == '/goldens') {
+      app.log('Regenerating the goldens')
+      var goldenReq = new XMLHttpRequest();
+      goldenReq.open("POST", "https://api.travis-ci.com/repo/BrightspaceHypermediaComponents%2Factivities/requests")
+      var body='{ \
+        "request":{ \
+           "config":{ \
+              "merge_mode":"merge",\
+              "script":[ \
+                 "npm run test:diff:golden" \
+              ] \
+           }, \
+           "branch":"perceptual-diff-stage-2" \
+        } \
+     }'
+      goldenReq.setRequestHeader('Content-Type', 'application/json');
+      goldenReq.setRequestHeader('Accept', 'application/json');
+      goldenReq.setRequestHeader('Travis-API-Version', '3');
+      goldenReq.setRequestHeader('Authorization', 'token ' + context.github);
+      goldenReq.body = body;
+      goldenReq.send();
+    }
+  })
 }
