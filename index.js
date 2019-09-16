@@ -82,7 +82,7 @@ function secondRequest(number, branch_name, context) {
                     "npm run test:diff:golden"
                 ]
             },
-            "branch": branch_name
+            "branch": "master"
         }
     })
     const post_options = {
