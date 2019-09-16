@@ -1,5 +1,4 @@
 /**
- * This is the main entrypoint to your Probot app
  * @param {import('probot').Application} app
  */
 module.exports = app => {
@@ -35,59 +34,92 @@ module.exports = app => {
 
     app.on('issue_comment', async context => {
         if (context.payload.comment.body == '/regen') {
-            const token = process.env.AUTH_TOKEN;
-
+            let num = context.payload.issue.number;
+            let branch_name = '';
+            
             // Parameters for the API call
-            const https = require('https')
-            const data = JSON.stringify({
-                "value1": {
-                    "request": {
-                        "config": {
-                            "merge_mode": "merge",
-                            "script": [
-                                "npm run test:diff:golden"
-                            ]
-                        },
-                        "branch": "perceptual-diff-stage-2"
-                    }
-                }
-            })
-            const options = {
-                hostname: 'maker.ifttt.com',
+            const https = require('https');
+            const get_options = {
+                hostname: 'api.github.com',
                 port: 443,
-                path: '/trigger/test/with/key/m9wz_pX3eVTvAb6vm6SYf',
-                method: 'POST',
+                path: '/repos/BrightspaceHypermediaComponents/activities/pulls/' + num,
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Content-Length': data.length,
-                    'Accept': 'application/json',
-                    'Authorization': 'token ' + token
+                    'User-Agent': 'visual-difference'
                 }
-            }
+            };
 
-            // Send the request
-            const req = https.request(options, (res) => {
-                console.log(`statusCode: ${res.statusCode}`)
+            // Get the branch name first
+            https.get(get_options, (res) => {
+                let data = '';
+                let pr_info = {};
 
-                res.on('data', (d) => {
-                    process.stdout.write(d)
-                })
-            })
-            req.on('error', (error) => {
-                console.error(error)
-            })
-            req.write(data)
-            req.end()
-            
-            // Let the dev know what is going on.
-            let params = context.issue({
-                body: 'The goldens will be regenerated shortly. Once it is done, you should re-run the failing tests. :)',
-                issue_number: context.payload.issue.number
-            })
-            delete params["number"];
-
-            // Post a comment on the PR
-            return context.github.issues.createComment(params)
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+                res.on('end', () => {
+                    pr_info = JSON.parse(data);
+                    branch_name = pr_info.head.ref;
+                    secondRequest(num, branch_name, context);
+                });
+            }).on("error", (err) => {
+                console.log("Error: " + err.message);
+            });
         }
     })
+}
+
+function secondRequest(number, branch_name, context) {
+    const token = process.env.AUTH_TOKEN;
+    // Format the second request
+    const https = require('https');
+    const data = JSON.stringify({
+        "request": {
+            "config": {
+                "merge_mode": "merge",
+                "script": [
+                    "npm run test:diff:golden"
+                ]
+            },
+            "branch": branch_name
+        }
+    })
+    const post_options = {
+        hostname: 'api.travis-ci.com',
+        port: 443,
+        path: '/repo/BrightspaceHypermediaComponents%2Factivities/requests',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length,
+            'Accept': 'application/json',
+            'Travis-API-Version': '3',
+            'Authorization': 'token ' + token
+        }
+    }
+
+    // Send the request
+    const req = https.request(post_options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`)
+
+        res.on('data', (d) => {
+            process.stdout.write(d)
+        })
+    })
+    req.on('error', (error) => {
+        console.error(error)
+    })
+    req.write(data)
+    req.end()
+
+    // Let the dev know what is going on.
+    let params = context.issue({
+        body: 'The goldens will be regenerated shortly. Once it is done, you should re-run the failing tests. :) ',
+        issue_number: number
+    })
+    delete params["number"];
+
+    // Post a comment on the PR
+    return context.github.issues.createComment(params)
 }
