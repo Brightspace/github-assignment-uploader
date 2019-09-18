@@ -6,19 +6,56 @@ module.exports = app => {
     app.on('check_run', async context => {
         // app.log(context.payload)
         if (context.payload.check_run.conclusion == 'failure' && context.payload.check_run.name == 'Travis CI - Pull Request') {
-            commentFailedVD(context)
+            getCheckRunSummary(context, context.payload.check_run.id)
         }
-    })
-
-    app.on('check_suite.completed', async context => {
-        app.log(context.payload)
     })
 
     app.on('issue_comment', async context => {
         if (context.payload.comment.body == '/regen') {
-            parseCommandComment(context);
+            getBranchNameAndReply(context);
         }
     })
+}
+
+function getCheckRunSummary(context, check_run_id) {
+    // Parameters for the API call
+    const https = require('https')
+    const get_options = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: '/repos/BrightspaceHypermediaComponents/activities/check-runs/' + check_run_id,
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'visual-difference',
+            'Accept': 'application/vnd.github.antiope-preview+json'
+        }
+    }
+
+    // Get the summary
+    https.get(get_options, (res) => {
+        let data = ''
+        let check_info = {}
+        let summ = ''
+
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+        res.on('end', () => {
+            check_info = JSON.parse(data)
+            summ = check_info.output.summary
+            console.log(summ.length)
+            checkIfVDBuildFailed(summ)
+        })
+    }).on("error", (err) => {
+        console.log("Error: " + err.message)
+    })
+}
+
+function checkIfVDBuildFailed(summary) {
+    if (summary.includes('Stage 2: Visual-difference-tests\nThis stage **failed**')) {
+        commentFailedVD(context)
+    }
 }
 
 function commentFailedVD(context) {
@@ -48,10 +85,10 @@ function commentFailedVD(context) {
     return context.github.issues.createComment(params)
 }
 
-function parseCommandComment(context) {
+function getBranchNameAndReply(context) {
     let num = context.payload.issue.number
     let branch_name = ''
-    
+
     // Parameters for the API call
     const https = require('https')
     const get_options = {
