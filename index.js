@@ -1,3 +1,12 @@
+const REPO_PATH = '/repos/BrightspaceHypermediaComponents/activities'
+const REPO_PATH_TRAVIS = '/repo/BrightspaceHypermediaComponents%2Factivities/'
+
+const TRAVIS_PI_BUILD = 'Travis CI - Pull Request'
+const FAIL = 'failure'
+const REGEN_CMD = '/regen'
+const GH_APP_NAME = 'visual-difference'
+const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
+
 /**
  * @param {import('probot').Application} app
  */
@@ -5,13 +14,13 @@ module.exports = app => {
 
     app.on('check_run', async context => {
         // app.log(context.payload)
-        if (context.payload.check_run.conclusion == 'failure' && context.payload.check_run.name == 'Travis CI - Pull Request') {
+        if (context.payload.check_run.conclusion == FAIL && context.payload.check_run.name == TRAVIS_PI_BUILD) {
             getCheckRunSummary(context, context.payload.check_run.id)
         }
     })
 
     app.on('issue_comment', async context => {
-        if (context.payload.comment.body == '/regen') {
+        if (context.payload.comment.body == REGEN_CMD) {
             getBranchNameAndReply(context);
         }
     })
@@ -23,11 +32,11 @@ function getCheckRunSummary(context, check_run_id) {
     const get_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: '/repos/BrightspaceHypermediaComponents/activities/check-runs/' + check_run_id,
+        path: REPO_PATH + '/check-runs/' + check_run_id,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'visual-difference',
+            'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
         }
     }
@@ -35,25 +44,20 @@ function getCheckRunSummary(context, check_run_id) {
     // Get the summary
     https.get(get_options, (res) => {
         let data = ''
-        let check_info = {}
-        let summ = ''
 
         res.on('data', (chunk) => {
             data += chunk
         })
         res.on('end', () => {
-            check_info = JSON.parse(data)
-            summ = check_info.output.summary
-            console.log(summ.length)
-            checkIfVDBuildFailed(summ)
+            checkIfVDBuildFailed(context, String(data))
         })
     }).on("error", (err) => {
         console.log("Error: " + err.message)
     })
 }
 
-function checkIfVDBuildFailed(summary) {
-    if (summary.includes('Stage 2: Visual-difference-tests\nThis stage **failed**')) {
+function checkIfVDBuildFailed(context, message) {
+    if (message.includes(VD_TEST_FAILURE)) {
         commentFailedVD(context)
     }
 }
@@ -72,8 +76,8 @@ function commentFailedVD(context) {
 
     // Post a comment letting the dev know their build failed.
     let params = ({
-        body: 'Hey there! It looks like your "Travis CI - Pull Request" \
-               build failed. Possibily due to the visual difference test failing. \
+        body: 'Hey there! It looks like your "' + TRAVIS_PI_BUILD + '" \
+               build failed, due to the visual difference test failing. \
                Check out the details of the build [here](' + url + '). \
                To regenerate the goldens please comment with "/regen".',
         issue_number: number,
@@ -94,11 +98,11 @@ function getBranchNameAndReply(context) {
     const get_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: '/repos/BrightspaceHypermediaComponents/activities/pulls/' + num,
+        path: REPO_PATH + '/pulls/' + num,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'visual-difference'
+            'User-Agent': GH_APP_NAME
         }
     }
 
@@ -138,7 +142,7 @@ function regenGoldensComment(number, branch_name, context) {
     const post_options = {
         hostname: 'api.travis-ci.com',
         port: 443,
-        path: '/repo/BrightspaceHypermediaComponents%2Factivities/requests',
+        path: REPO_PATH_TRAVIS + '/requests',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
