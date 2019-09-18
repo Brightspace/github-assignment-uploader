@@ -1,11 +1,12 @@
 const REPO_PATH = '/repos/BrightspaceHypermediaComponents/activities'
 const REPO_PATH_TRAVIS = '/repo/BrightspaceHypermediaComponents%2Factivities/'
 
-const TRAVIS_PI_BUILD = 'Travis CI - Pull Request'
-const FAIL = 'failure'
-const REGEN_CMD = '/regen'
+var TRAVIS_PI_BUILD = 'Travis CI - Pull Request'
+var FAIL = 'failure'
+var REGEN_CMD = 'regen'
 const GH_APP_NAME = 'visual-difference'
 const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
+const CHECK_RUN_NAME = 'Visual Difference Tests'
 
 /**
  * @param {import('probot').Application} app
@@ -13,15 +14,15 @@ const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed*
 module.exports = app => {
 
     app.on('check_run', async context => {
-        // app.log(context.payload)
         if (context.payload.check_run.conclusion == FAIL && context.payload.check_run.name == TRAVIS_PI_BUILD) {
             getCheckRunSummary(context, context.payload.check_run.id)
         }
     })
 
-    app.on('issue_comment', async context => {
-        if (context.payload.comment.body == REGEN_CMD) {
-            getBranchNameAndReply(context);
+    app.on('check_run.requested_action', async context => {
+        console.log(context.payload.requested_action.identifier)
+        if (context.payload.requested_action.identifier == REGEN_CMD) {
+            getBranchNameAndReply(context) 
         }
     })
 }
@@ -79,14 +80,67 @@ function commentFailedVD(context) {
         body: 'Hey there! It looks like your "' + TRAVIS_PI_BUILD + '" \
                build failed, due to the visual difference test failing. \
                Check out the details of the build [here](' + url + '). \
-               To regenerate the goldens please comment with "/regen".',
+               To regenerate the goldens please see the actions of the latest check run.',
         issue_number: number,
         owner: repo_owner,
         repo: the_repo
     })
 
+    createCheckRun(context);
+
     // Post a comment on the PR
     return context.github.issues.createComment(params)
+}
+
+function createCheckRun(context) {
+    console.log("Doing")
+    // Parameters for the API call
+    const https = require('https')
+    const data = JSON.stringify({
+        'name': CHECK_RUN_NAME,
+        'head_sha': context.payload.check_run.head_sha,
+        'status': 'completed',
+        'conclusion': FAIL,
+        'started_at': context.payload.check_run.started_at,
+        'completed_at': context.payload.check_run.completed_at,
+        'actions': [{
+            "label": "Regenerate Goldens",
+            "description": "Regenereate the Golden images stored in the S3 Bucket.",
+            "identifier": REGEN_CMD
+          }],
+        'output': {
+            'title': CHECK_RUN_NAME,
+            'summary': 'Visual difference tests failed.'
+        }
+    })
+
+    const post_options = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: REPO_PATH + '/check-runs',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length,
+            'User-Agent': GH_APP_NAME,
+            'Accept': 'application/vnd.github.antiope-preview+json'
+        }
+    }
+
+    // Send the request
+    const req = https.request(post_options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`)
+
+        res.on('data', (d) => {
+            process.stdout.write(d)
+        })
+    })
+    req.on('error', (error) => {
+        console.error(error)
+    })
+    req.write(data)
+    req.end()
+    console.log("DONE!")
 }
 
 function getBranchNameAndReply(context) {
