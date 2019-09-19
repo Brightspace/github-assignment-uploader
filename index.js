@@ -1,28 +1,42 @@
 const REPO_PATH = '/repos/BrightspaceHypermediaComponents/activities'
-const REPO_PATH_TRAVIS = '/repo/BrightspaceHypermediaComponents%2Factivities/'
+const REPO_PATH_TRAVIS = '/repo/BrightspaceHypermediaComponents%2Factivities'
+
+const GH_APP_NAME = 'visual-difference'
+const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
+const CHECK_RUN_NAME = 'Visual Difference Tests'
 
 var TRAVIS_PI_BUILD = 'Travis CI - Pull Request'
 var FAIL = 'failure'
 var REGEN_CMD = 'regen'
-const GH_APP_NAME = 'visual-difference'
-const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
-const CHECK_RUN_NAME = 'Visual Difference Tests'
+
+var PR_ID = 0
+var LATEST_TOKEN = ''
+var INSTALLATION_ID = 1930430
 
 /**
  * @param {import('probot').Application} app
  */
 module.exports = app => {
+    updateToken()
 
     app.on('check_run', async context => {
+        updateToken()
+        if (context.payload.check_run.name == TRAVIS_PI_BUILD) {
+            createCheckRunProgress(context)
+        }
         if (context.payload.check_run.conclusion == FAIL && context.payload.check_run.name == TRAVIS_PI_BUILD) {
             getCheckRunSummary(context, context.payload.check_run.id)
+        }
+        if (context.payload.check_run.conclusion == 'success' && context.payload.check_run.name == TRAVIS_PI_BUILD) {
+            createCheckRunComplete(context)
         }
     })
 
     app.on('check_run.requested_action', async context => {
+        updateToken()
         console.log(context.payload.requested_action.identifier)
         if (context.payload.requested_action.identifier == REGEN_CMD) {
-            getBranchNameAndReply(context) 
+            getBranchName(context)
         }
     })
 }
@@ -79,38 +93,32 @@ function commentFailedVD(context) {
     let params = ({
         body: 'Hey there! It looks like your "' + TRAVIS_PI_BUILD + '" \
                build failed, due to the visual difference test failing. \
-               Check out the details of the build [here](' + url + '). \
-               To regenerate the goldens please see the actions of the latest check run.',
+               Check out the details of the Travis build [here](' + url + '). \
+               To regenerate the goldens please click the "Details" link on the "Visual Difference Tests" check. \
+               If you decide to re-generate the goldens, please re-run the "Visual-difference-tests" Travis job afterwards.',
         issue_number: number,
         owner: repo_owner,
         repo: the_repo
     })
-
-    createCheckRun(context);
+    createCheckRunFail(context);
 
     // Post a comment on the PR
+    PR_ID = number
     return context.github.issues.createComment(params)
 }
 
-function createCheckRun(context) {
-    console.log("Doing")
+function createCheckRunProgress(context) {
+    updateToken()
     // Parameters for the API call
     const https = require('https')
     const data = JSON.stringify({
         'name': CHECK_RUN_NAME,
         'head_sha': context.payload.check_run.head_sha,
-        'status': 'completed',
-        'conclusion': FAIL,
+        'status': 'in_progress',
         'started_at': context.payload.check_run.started_at,
-        'completed_at': context.payload.check_run.completed_at,
-        'actions': [{
-            "label": "Regenerate Goldens",
-            "description": "Regenereate the Golden images stored in the S3 Bucket.",
-            "identifier": REGEN_CMD
-          }],
         'output': {
             'title': CHECK_RUN_NAME,
-            'summary': 'Visual difference tests failed.'
+            'summary': 'Visual difference tests are in progress.'
         }
     })
 
@@ -123,7 +131,8 @@ function createCheckRun(context) {
             'Content-Type': 'application/json',
             'Content-Length': data.length,
             'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json'
+            'Accept': 'application/vnd.github.antiope-preview+json',
+            'Authorization': 'Token ' + LATEST_TOKEN
         }
     }
 
@@ -140,11 +149,107 @@ function createCheckRun(context) {
     })
     req.write(data)
     req.end()
-    console.log("DONE!")
 }
 
-function getBranchNameAndReply(context) {
-    let num = context.payload.issue.number
+function createCheckRunFail(context) {
+    updateToken()
+    // Parameters for the API call
+    const https = require('https')
+    const data = JSON.stringify({
+        'name': CHECK_RUN_NAME,
+        'head_sha': context.payload.check_run.head_sha,
+        'status': 'completed',
+        'conclusion': FAIL,
+        'started_at': context.payload.check_run.started_at,
+        'completed_at': context.payload.check_run.completed_at,
+        'actions': [{
+            "label": "Regenerate Goldens",
+            "description": "Regenereate the Golden images.",
+            "identifier": REGEN_CMD
+        }],
+        'output': {
+            'title': CHECK_RUN_NAME,
+            'summary': 'Visual difference tests failed.'
+        }
+    })
+
+    const post_options = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: REPO_PATH + '/check-runs',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length,
+            'User-Agent': GH_APP_NAME,
+            'Accept': 'application/vnd.github.antiope-preview+json',
+            'Authorization': 'Token ' + LATEST_TOKEN
+        }
+    }
+
+    // Send the request
+    const req = https.request(post_options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`)
+
+        res.on('data', (d) => {
+            process.stdout.write(d)
+        })
+    })
+    req.on('error', (error) => {
+        console.error(error)
+    })
+    req.write(data)
+    req.end()
+}
+
+function createCheckRunComplete(context) {
+    updateToken()
+    // Parameters for the API call
+    const https = require('https')
+    const data = JSON.stringify({
+        'name': CHECK_RUN_NAME,
+        'head_sha': context.payload.check_run.head_sha,
+        'status': 'completed',
+        'conclusion': 'success',
+        'started_at': context.payload.check_run.started_at,
+        'completed_at': context.payload.check_run.completed_at,
+        'output': {
+            'title': CHECK_RUN_NAME,
+            'summary': 'Visual difference tests passed!'
+        }
+    })
+
+    const post_options = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: REPO_PATH + '/check-runs',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length,
+            'User-Agent': GH_APP_NAME,
+            'Accept': 'application/vnd.github.antiope-preview+json',
+            'Authorization': 'Token ' + LATEST_TOKEN
+        }
+    }
+
+    // Send the request
+    const req = https.request(post_options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`)
+
+        res.on('data', (d) => {
+            process.stdout.write(d)
+        })
+    })
+    req.on('error', (error) => {
+        console.error(error)
+    })
+    req.write(data)
+    req.end()
+}
+
+function getBranchName(context) {
+    let num = PR_ID
     let branch_name = ''
 
     // Parameters for the API call
@@ -171,14 +276,14 @@ function getBranchNameAndReply(context) {
         res.on('end', () => {
             pr_info = JSON.parse(data)
             branch_name = pr_info.head.ref
-            regenGoldensComment(num, branch_name, context)
+            regenGoldens(num, branch_name, context)
         })
     }).on("error", (err) => {
         console.log("Error: " + err.message)
     })
 }
 
-function regenGoldensComment(number, branch_name, context) {
+function regenGoldens(number, branch_name, context) {
     const token = process.env.AUTH_TOKEN
     // Format the second request
     const https = require('https')
@@ -223,11 +328,87 @@ function regenGoldensComment(number, branch_name, context) {
 
     // Let the dev know what is going on.
     let params = context.issue({
-        body: 'The goldens will be regenerated shortly. Once it is done, you should re-run the failing tests.',
+        body: 'The Goldens will be regenerated shortly. Once it is done, you should re-run the failing Travis CI job.',
         issue_number: number
     })
     delete params["number"]
 
     // Post a comment on the PR
     return context.github.issues.createComment(params)
+}
+
+function updateToken() {
+    // Get the JWT
+    var exec = require("child_process").exec;
+    var jwt = ''
+
+    exec('ruby jwt.rb', function (err, stdout, stderr) {
+        jwt = String(stdout.trim())
+        authenticateJWT(jwt)
+    })
+}
+
+function authenticateJWT(jwt) {
+    // Authorize the JWT
+    // Parameters for the API call
+    const https = require('https')
+    const get_options = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: '/app',
+        method: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + jwt,
+            'User-Agent': GH_APP_NAME,
+            'Accept': 'application/vnd.github.antiope-preview+json'
+        }
+    }
+    // Send the request
+    const req = https.request(get_options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`)
+        let data = ''
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+        res.on('end', () => {
+            getAppToken(jwt)
+        })
+    })
+    req.on('error', (error) => {
+        console.error(error)
+    })
+    req.end()
+}
+
+function getAppToken(jwt) {
+    const https = require('https')
+    // Get the app token
+    const post_options = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: '/app/installations/' + INSTALLATION_ID + '/access_tokens',
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + jwt,
+            'Accept': 'application/vnd.github.machine-man-preview+json',
+            'User-Agent': GH_APP_NAME,
+            'Content-Type': 'application/json'
+        }
+    }
+    https.get(post_options, (res) => {
+        console.log(`statusCode: ${res.statusCode}`)
+        let data = ''
+        let token_info = {}
+
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+        res.on('end', () => {
+            token_info = JSON.parse(data)
+            token = token_info.token
+            LATEST_TOKEN = token
+        })
+    }).on("error", (err) => {
+        console.log("Error: " + err.message)
+    })
 }
