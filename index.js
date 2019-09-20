@@ -7,9 +7,10 @@ const CHECK_RUN_NAME = 'Visual Difference Tests'
 
 var TRAVIS_PI_BUILD = 'Travis CI - Pull Request'
 var FAIL = 'failure'
+var GOOD = 'success'
 var REGEN_CMD = 'regen'
+var MASTER_CMD = 'master'
 
-var PR_ID = 0
 var LATEST_TOKEN = ''
 var INSTALLATION_ID = 1930430
 
@@ -27,7 +28,7 @@ module.exports = app => {
         if (context.payload.check_run.conclusion == FAIL && context.payload.check_run.name == TRAVIS_PI_BUILD) {
             getCheckRunSummary(context, context.payload.check_run.id)
         }
-        if (context.payload.check_run.conclusion == 'success' && context.payload.check_run.name == TRAVIS_PI_BUILD) {
+        if (context.payload.check_run.conclusion == GOOD && context.payload.check_run.name == TRAVIS_PI_BUILD) {
             createCheckRunComplete(context)
         }
     })
@@ -35,8 +36,11 @@ module.exports = app => {
     app.on('check_run.requested_action', async context => {
         updateToken()
         console.log(context.payload.requested_action.identifier)
-        if (context.payload.requested_action.identifier == REGEN_CMD) {
-            getBranchName(context)
+        if (context.payload.requested_action.identifier.includes(REGEN_CMD)) {
+            getBranchName(context, JSON.parse(context.payload.requested_action.identifier).number)
+        }
+        if (context.payload.requested_action.identifier.includes(MASTER_CMD)) {
+            regenGoldens(JSON.parse(context.payload.requested_action.identifier).number, MASTER_CMD, context)
         }
     })
 }
@@ -100,7 +104,7 @@ function commentFailedVD(context) {
         owner: repo_owner,
         repo: the_repo
     })
-    createCheckRunFail(context);
+    createCheckRunFail(context, number);
 
     // Post a comment on the PR
     PR_ID = number
@@ -151,7 +155,7 @@ function createCheckRunProgress(context) {
     req.end()
 }
 
-function createCheckRunFail(context) {
+function createCheckRunFail(context, number) {
     updateToken()
     // Parameters for the API call
     const https = require('https')
@@ -165,7 +169,17 @@ function createCheckRunFail(context) {
         'actions': [{
             "label": "Regenerate Goldens",
             "description": "Regenereate the Golden images.",
-            "identifier": REGEN_CMD
+            "identifier": JSON.stringify({
+                "command": REGEN_CMD,
+                "number": number
+            })
+        }, {
+            "label": "Reset Goldens",
+            "description": "Reset goldens to master.",
+            "identifier": JSON.stringify({
+                "command": MASTER_CMD,
+                "number": number
+            })
         }],
         'output': {
             'title': CHECK_RUN_NAME,
@@ -210,7 +224,7 @@ function createCheckRunComplete(context) {
         'name': CHECK_RUN_NAME,
         'head_sha': context.payload.check_run.head_sha,
         'status': 'completed',
-        'conclusion': 'success',
+        'conclusion': GOOD,
         'started_at': context.payload.check_run.started_at,
         'completed_at': context.payload.check_run.completed_at,
         'output': {
@@ -248,8 +262,7 @@ function createCheckRunComplete(context) {
     req.end()
 }
 
-function getBranchName(context) {
-    let num = PR_ID
+function getBranchName(context, num) {
     let branch_name = ''
 
     // Parameters for the API call
