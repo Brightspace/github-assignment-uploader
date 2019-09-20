@@ -340,14 +340,14 @@ function regenGoldens(number, branch_name, context) {
     req.end()
 
     // Let the dev know what is going on.
-    let params = context.issue({
-        body: 'The Goldens will be regenerated shortly. Once it is done, you should re-run the failing Travis CI job.',
-        issue_number: number
-    })
-    delete params["number"]
+    // let params = context.issue({
+    //     body: 'The Goldens will be regenerated shortly. Once it is done, you should re-run the failing Travis CI job.',
+    //     issue_number: number
+    // })
+    // delete params["number"]
 
-    // Post a comment on the PR
-    return context.github.issues.createComment(params)
+    // // Post a comment on the PR
+    // return context.github.issues.createComment(params)
 }
 
 function updateToken() {

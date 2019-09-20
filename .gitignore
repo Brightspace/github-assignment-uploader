@@ -1,3 +1,4 @@
 .env
 .pem
 .rb
+node_modules/
