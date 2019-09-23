@@ -1,18 +1,19 @@
-const REPO_PATH = '/repos/BrightspaceHypermediaComponents/activities'
-const REPO_PATH_TRAVIS = '/repo/BrightspaceHypermediaComponents%2Factivities'
-
 const GH_APP_NAME = 'visual-difference'
 const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
 const CHECK_RUN_NAME = 'Visual Difference Tests'
+const PREFIX = "https://api.github.com"
 
-var TRAVIS_PI_BUILD = 'Travis CI - Pull Request'
-var FAIL = 'failure'
-var GOOD = 'success'
-var REGEN_CMD = 'regen'
-var MASTER_CMD = 'master'
+var repo_path = ''
+var repo_path_travis = ''
 
-var LATEST_TOKEN = ''
-var INSTALLATION_ID = 1930430
+var travis_pr_build = 'Travis CI - Pull Request'
+var failure = 'failure'
+var success = 'success'
+var regenCommand = 'regen'
+var masterCommand = 'master'
+
+var latestToken = ''
+var installationID = 0
 
 /**
  * @param {import('probot').Application} app
@@ -20,15 +21,24 @@ var INSTALLATION_ID = 1930430
 module.exports = app => {
     updateToken()
 
+    // Update our stored information anytime there is an event.
+    app.on('*', async context => {
+        installationID = context.payload.installation.id
+        repo_path = context.payload.repository.owner.url.split(PREFIX)[1]
+        repo_path_travis = repo_path.replace("/repos", "/repo")
+        repo_path_travis = repo_path_travis.replace("\/(?=[^\/]*$)", "%2F")
+        updateToken()
+    })
+
     app.on('check_run', async context => {
         updateToken()
-        if (context.payload.check_run.name == TRAVIS_PI_BUILD) {
+        if (context.payload.check_run.name == travis_pr_build) {
             createCheckRunProgress(context)
         }
-        if (context.payload.check_run.conclusion == FAIL && context.payload.check_run.name == TRAVIS_PI_BUILD) {
+        if (context.payload.check_run.conclusion == failure && context.payload.check_run.name == travis_pr_build) {
             getCheckRunSummary(context, context.payload.check_run.id)
         }
-        if (context.payload.check_run.conclusion == GOOD && context.payload.check_run.name == TRAVIS_PI_BUILD) {
+        if (context.payload.check_run.conclusion == success && context.payload.check_run.name == travis_pr_build) {
             createCheckRunComplete(context)
         }
     })
@@ -36,11 +46,11 @@ module.exports = app => {
     app.on('check_run.requested_action', async context => {
         updateToken()
         console.log(context.payload.requested_action.identifier)
-        if (context.payload.requested_action.identifier.includes(REGEN_CMD)) {
+        if (context.payload.requested_action.identifier.includes(regenCommand)) {
             getBranchName(context, JSON.parse(context.payload.requested_action.identifier).number)
         }
-        if (context.payload.requested_action.identifier.includes(MASTER_CMD)) {
-            regenGoldens(JSON.parse(context.payload.requested_action.identifier).number, MASTER_CMD, context)
+        if (context.payload.requested_action.identifier.includes(masterCommand)) {
+            regenGoldens(JSON.parse(context.payload.requested_action.identifier).number, masterCommand, context)
         }
     })
 }
@@ -51,7 +61,7 @@ function getCheckRunSummary(context, check_run_id) {
     const get_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: REPO_PATH + '/check-runs/' + check_run_id,
+        path: repo_path + '/check-runs/' + check_run_id,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -75,6 +85,7 @@ function getCheckRunSummary(context, check_run_id) {
     })
 }
 
+// Did the visual difference test fail?
 function checkIfVDBuildFailed(context, message) {
     if (message.includes(VD_TEST_FAILURE)) {
         commentFailedVD(context)
@@ -95,7 +106,7 @@ function commentFailedVD(context) {
 
     // Post a comment letting the dev know their build failed.
     let params = ({
-        body: 'Hey there! It looks like your "' + TRAVIS_PI_BUILD + '" \
+        body: 'Hey there! It looks like your "' + travis_pr_build + '" \
                build failed, due to the visual difference test failing. \
                Check out the details of the Travis build [here](' + url + '). \
                To regenerate the goldens please click the "Details" link on the "Visual Difference Tests" check. \
@@ -107,7 +118,6 @@ function commentFailedVD(context) {
     createCheckRunFail(context, number);
 
     // Post a comment on the PR
-    PR_ID = number
     return context.github.issues.createComment(params)
 }
 
@@ -129,14 +139,14 @@ function createCheckRunProgress(context) {
     const post_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: REPO_PATH + '/check-runs',
+        path: repo_path + '/check-runs',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Content-Length': data.length,
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json',
-            'Authorization': 'Token ' + LATEST_TOKEN
+            'Authorization': 'Token ' + latestToken
         }
     }
 
@@ -163,21 +173,21 @@ function createCheckRunFail(context, number) {
         'name': CHECK_RUN_NAME,
         'head_sha': context.payload.check_run.head_sha,
         'status': 'completed',
-        'conclusion': FAIL,
+        'conclusion': failure,
         'started_at': context.payload.check_run.started_at,
         'completed_at': context.payload.check_run.completed_at,
         'actions': [{
             "label": "Regenerate Goldens",
             "description": "Regenereate the Golden images.",
             "identifier": JSON.stringify({
-                "command": REGEN_CMD,
+                "command": regenCommand,
                 "number": number
             })
         }, {
             "label": "Reset Goldens",
             "description": "Reset goldens to master.",
             "identifier": JSON.stringify({
-                "command": MASTER_CMD,
+                "command": masterCommand,
                 "number": number
             })
         }],
@@ -190,14 +200,14 @@ function createCheckRunFail(context, number) {
     const post_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: REPO_PATH + '/check-runs',
+        path: repo_path + '/check-runs',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Content-Length': data.length,
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json',
-            'Authorization': 'Token ' + LATEST_TOKEN
+            'Authorization': 'Token ' + latestToken
         }
     }
 
@@ -224,7 +234,7 @@ function createCheckRunComplete(context) {
         'name': CHECK_RUN_NAME,
         'head_sha': context.payload.check_run.head_sha,
         'status': 'completed',
-        'conclusion': GOOD,
+        'conclusion': success,
         'started_at': context.payload.check_run.started_at,
         'completed_at': context.payload.check_run.completed_at,
         'output': {
@@ -236,14 +246,14 @@ function createCheckRunComplete(context) {
     const post_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: REPO_PATH + '/check-runs',
+        path: repo_path + '/check-runs',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Content-Length': data.length,
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json',
-            'Authorization': 'Token ' + LATEST_TOKEN
+            'Authorization': 'Token ' + latestToken
         }
     }
 
@@ -270,7 +280,7 @@ function getBranchName(context, num) {
     const get_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: REPO_PATH + '/pulls/' + num,
+        path: repo_path + '/pulls/' + num,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -297,7 +307,7 @@ function getBranchName(context, num) {
 }
 
 function regenGoldens(number, branch_name, context) {
-    const token = process.env.AUTH_TOKEN
+    const token = process.env.TRAVIS_AUTH
     // Format the second request
     const https = require('https')
     const data = JSON.stringify({
@@ -314,7 +324,7 @@ function regenGoldens(number, branch_name, context) {
     const post_options = {
         hostname: 'api.travis-ci.com',
         port: 443,
-        path: REPO_PATH_TRAVIS + '/requests',
+        path: repo_path_travis + '/requests',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -338,16 +348,6 @@ function regenGoldens(number, branch_name, context) {
     })
     req.write(data)
     req.end()
-
-    // Let the dev know what is going on.
-    // let params = context.issue({
-    //     body: 'The Goldens will be regenerated shortly. Once it is done, you should re-run the failing Travis CI job.',
-    //     issue_number: number
-    // })
-    // delete params["number"]
-
-    // // Post a comment on the PR
-    // return context.github.issues.createComment(params)
 }
 
 function updateToken() {
@@ -355,10 +355,15 @@ function updateToken() {
     var exec = require("child_process").exec;
     var jwt = ''
 
-    exec('ruby jwt.rb', function (err, stdout, stderr) {
-        jwt = String(stdout.trim())
-        authenticateJWT(jwt)
-    })
+    var token = jwt.sign({
+        iat: dfssdaf,
+        exp: Math.floor(Date.now() / 1000) + (10 * 60),
+        iss: 41247
+    }, process.env.PRIVATE_KEY, {
+        algorithm: 'RS256'
+    });
+
+    authenticateJWT(token);
 }
 
 function authenticateJWT(jwt) {
@@ -399,7 +404,7 @@ function getAppToken(jwt) {
     const post_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: '/app/installations/' + INSTALLATION_ID + '/access_tokens',
+        path: '/app/installations/' + installationID + '/access_tokens',
         method: 'POST',
         headers: {
             'Authorization': 'Bearer ' + jwt,
@@ -419,7 +424,7 @@ function getAppToken(jwt) {
         res.on('end', () => {
             token_info = JSON.parse(data)
             token = token_info.token
-            LATEST_TOKEN = token
+            latestToken = token
         })
     }).on("error", (err) => {
         console.log("Error: " + err.message)
