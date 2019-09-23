@@ -356,7 +356,7 @@ function updateToken() {
     var jwt = ''
 
     var token = jwt.sign({
-        iat: dfssdaf,
+        iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + (10 * 60),
         iss: 41247
     }, process.env.PRIVATE_KEY, {
