@@ -352,9 +352,7 @@ function regenGoldens(number, branch_name, context) {
 
 function updateToken() {
     // Get the JWT
-    var exec = require("child_process").exec;
-    var jwt = ''
-
+    var jwt = require('jsonwebtoken');
     var token = jwt.sign({
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + (10 * 60),
