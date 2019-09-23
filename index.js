@@ -3,8 +3,8 @@ const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed*
 const CHECK_RUN_NAME = 'Visual Difference Tests'
 const PREFIX = "https://api.github.com"
 
-var repo_path = ''
-var repo_path_travis = ''
+var repoPath = ''
+var repoPathTravis = ''
 
 var travis_pr_build = 'Travis CI - Pull Request'
 var failure = 'failure'
@@ -19,14 +19,13 @@ var installationID = 0
  * @param {import('probot').Application} app
  */
 module.exports = app => {
-    updateToken()
-
     // Update our stored information anytime there is an event.
     app.on('*', async context => {
         installationID = context.payload.installation.id
-        repo_path = context.payload.repository.owner.url.split(PREFIX)[1]
-        repo_path_travis = repo_path.replace("/repos", "/repo")
-        repo_path_travis = repo_path_travis.replace("\/(?=[^\/]*$)", "%2F")
+        repoPath = context.payload.repository.url.split(PREFIX)[1]
+        repoPathTravis = repoPath.replace("/repos", "/repo")
+        var regex = /\/(?=[^\/]*$)/g
+        repoPathTravis = repoPathTravis.replace(regex, "%2F")
         updateToken()
     })
 
@@ -61,7 +60,7 @@ function getCheckRunSummary(context, check_run_id) {
     const get_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: repo_path + '/check-runs/' + check_run_id,
+        path: repoPath + '/check-runs/' + check_run_id,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -139,7 +138,7 @@ function createCheckRunProgress(context) {
     const post_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: repo_path + '/check-runs',
+        path: repoPath + '/check-runs',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -200,7 +199,7 @@ function createCheckRunFail(context, number) {
     const post_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: repo_path + '/check-runs',
+        path: repoPath + '/check-runs',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -246,7 +245,7 @@ function createCheckRunComplete(context) {
     const post_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: repo_path + '/check-runs',
+        path: repoPath + '/check-runs',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -280,7 +279,7 @@ function getBranchName(context, num) {
     const get_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: repo_path + '/pulls/' + num,
+        path: repoPath + '/pulls/' + num,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -324,7 +323,7 @@ function regenGoldens(number, branch_name, context) {
     const post_options = {
         hostname: 'api.travis-ci.com',
         port: 443,
-        path: repo_path_travis + '/requests',
+        path: repoPathTravis + '/requests',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -337,7 +336,7 @@ function regenGoldens(number, branch_name, context) {
 
     // Send the request
     const req = https.request(post_options, (res) => {
-        console.log(`statusCode: ${res.statusCode}`)
+        // console.log(`statusCode: ${res.statusCode}`)
 
         res.on('data', (d) => {
             process.stdout.write(d)
@@ -381,7 +380,7 @@ function authenticateJWT(jwt) {
     }
     // Send the request
     const req = https.request(get_options, (res) => {
-        console.log(`statusCode: ${res.statusCode}`)
+        // console.log(`statusCode: ${res.statusCode}`)
         let data = ''
         res.on('data', (chunk) => {
             data += chunk
@@ -412,7 +411,7 @@ function getAppToken(jwt) {
         }
     }
     https.get(post_options, (res) => {
-        console.log(`statusCode: ${res.statusCode}`)
+        // console.log(`statusCode: ${res.statusCode}`)
         let data = ''
         let token_info = {}
 
@@ -423,6 +422,10 @@ function getAppToken(jwt) {
             token_info = JSON.parse(data)
             token = token_info.token
             latestToken = token
+            
+            if(res.statusCode == 200 || res.statusCode == 201) {
+                console.log("Authenticated with GitHub successfully.")
+            }
         })
     }).on("error", (err) => {
         console.log("Error: " + err.message)

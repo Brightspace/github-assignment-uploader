@@ -4,9 +4,9 @@
   "description": "The visual difference bot",
   "author": "Diljot Garcha <Diljot.Garcha@D2L.com> (https://d2l.com)",
   "license": "ISC",
-  "repository": "https://github.com/DiljotSG/visual-difference-bot.git",
+  "repository": "https://github.com/BrightspaceUI/visual-difference-bot.git",
   "homepage": "https://d2l.com",
-  "bugs": "https://github.com/DiljotSG/visual-difference-bot/issues",
+  "bugs": "https://github.com/BrightspaceUI/visual-difference-bot/issues",
   "keywords": [
     "probot",
     "github",
