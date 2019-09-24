@@ -1,7 +1,10 @@
 const GH_APP_NAME = 'visual-difference'
+const VD_TEST = 'Stage 2: Visual-difference-tests'
 const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
 const CHECK_RUN_NAME = 'Visual Difference Tests'
 const PREFIX = "https://api.github.com"
+const TRAVIS_PREFIX = "https://travis-ci.com/"
+const TRAVIS_MIDDLE = "/jobs/"
 
 var repoPath = ''
 var repoPathTravis = ''
@@ -9,8 +12,8 @@ var repoPathTravis = ''
 var travis_pr_build = 'Travis CI - Pull Request'
 var failure = 'failure'
 var success = 'success'
-var regenCommand = 'regen'
-var masterCommand = 'master'
+var regenCommand = 'r'
+var masterCommand = 'm'
 
 var latestToken = ''
 var installationID = 0
@@ -29,38 +32,50 @@ module.exports = app => {
         updateToken()
     })
 
+    // On a check run event perform some checks
     app.on('check_run', async context => {
         updateToken()
+        
+        // If it's a travis PR build, check the progress and make a VD check run.
         if (context.payload.check_run.name == travis_pr_build) {
-            createCheckRunProgress(context)
+            hasVisualDiffTest(context, context.payload.check_run.id, createCheckRunProgress)
         }
+
+        // If the travis PR build finished and failed, check if VD tests failed.
         if (context.payload.check_run.conclusion == failure && context.payload.check_run.name == travis_pr_build) {
-            getCheckRunSummary(context, context.payload.check_run.id)
+            getCheckRunSummaryAndCommentOnFailure(context, context.payload.check_run.id)
         }
+
+        // If the travis PR build finished and finished, mark VD tests as completed.
         if (context.payload.check_run.conclusion == success && context.payload.check_run.name == travis_pr_build) {
-            createCheckRunComplete(context)
+            hasVisualDiffTest(context, context.payload.check_run.id, createCheckRunComplete)
         }
     })
 
+    // On a requested action button press from the user
     app.on('check_run.requested_action', async context => {
         updateToken()
-        console.log(context.payload.requested_action.identifier)
+
+        // Are we regenerating the goldens from the current branch?
         if (context.payload.requested_action.identifier.includes(regenCommand)) {
-            getBranchName(context, JSON.parse(context.payload.requested_action.identifier).number)
+            getBranchNameAndRegenGoldens(context, JSON.parse(context.payload.requested_action.identifier).n)
         }
+
+        // are we regenerating the goldens from the master branch?
         if (context.payload.requested_action.identifier.includes(masterCommand)) {
-            regenGoldens(JSON.parse(context.payload.requested_action.identifier).number, masterCommand, context)
+            regenGoldens(JSON.parse(context.payload.requested_action.identifier).n, "master", context)
         }
     })
 }
 
-function getCheckRunSummary(context, check_run_id) {
+// Does this check run have a visual difference test?
+function hasVisualDiffTest(context, checkRunID, callback) {
     // Parameters for the API call
     const https = require('https')
     const get_options = {
         hostname: 'api.github.com',
         port: 443,
-        path: repoPath + '/check-runs/' + check_run_id,
+        path: repoPath + '/check-runs/' + checkRunID,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -77,31 +92,73 @@ function getCheckRunSummary(context, check_run_id) {
             data += chunk
         })
         res.on('end', () => {
-            checkIfVDBuildFailed(context, String(data))
+            // Is there a visual difference test?
+            checkIfHasVD(context, String(data), callback)
         })
     }).on("error", (err) => {
         console.log("Error: " + err.message)
     })
 }
+// Is there a visual difference test?
+function checkIfHasVD(context, message, callback) {
+    if (message.includes(VD_TEST)) {
+        callback(context)
+    }
+}
 
-// Did the visual difference test fail?
-function checkIfVDBuildFailed(context, message) {
+// Get the Check Run Summary and Comment on a Failure
+function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
+    // Parameters for the API call
+    const https = require('https')
+    const get_options = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: repoPath + '/check-runs/' + checkRunID,
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': GH_APP_NAME,
+            'Accept': 'application/vnd.github.antiope-preview+json'
+        }
+    }
+
+    // Get the summary
+    https.get(get_options, (res) => {
+        let data = ''
+
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+        res.on('end', () => {
+            // Check if the build failed and comment
+            checkIfVDBuildFailedAndComment(context, String(data))
+        })
+    }).on("error", (err) => {
+        console.log("Error: " + err.message)
+    })
+}
+// Did the visual difference test fail? Leave a comment if so.
+function checkIfVDBuildFailedAndComment(context, message) {
     if (message.includes(VD_TEST_FAILURE)) {
         commentFailedVD(context)
     }
 }
-
+// Comment on the PR letting the dev know that the VD tests failed.
 function commentFailedVD(context) {
     // Extract the number, repo and repo owner from the check run.
-    let number = 0
-    let the_repo = ''
-    let repo_owner = ''
+    let issueNumber = 0
+    let repoName = ''
+    let repoOwner = ''
     let url = context.payload.check_run.details_url
-    context.payload.check_run.pull_requests.forEach(element => {
-        number = element.number
-        the_repo = element.base.repo.name
-    })
-    repo_owner = context.payload.organization.login
+
+    for (let element of context.payload.check_run.pull_requests) {
+        if (element.hasOwnProperty('number')) {
+            issueNumber = element.number
+            repoName = element.base.repo.name
+            break;
+        }
+    }
+    repoOwner = context.payload.organization.login
 
     // Post a comment letting the dev know their build failed.
     let params = ({
@@ -110,16 +167,19 @@ function commentFailedVD(context) {
                Check out the details of the Travis build [here](' + url + '). \
                To regenerate the goldens please click the "Details" link on the "Visual Difference Tests" check. \
                If you decide to re-generate the goldens, please re-run the "Visual-difference-tests" Travis job afterwards.',
-        issue_number: number,
-        owner: repo_owner,
-        repo: the_repo
+        number: issueNumber,
+        owner: repoOwner,
+        repo: repoName
     })
-    createCheckRunFail(context, number);
+
+    // Mark the check run as failing
+    createCheckRunFail(context, issueNumber);
 
     // Post a comment on the PR
     return context.github.issues.createComment(params)
 }
 
+// Create an in-progress check-run
 function createCheckRunProgress(context) {
     updateToken()
     // Parameters for the API call
@@ -132,7 +192,8 @@ function createCheckRunProgress(context) {
         'output': {
             'title': CHECK_RUN_NAME,
             'summary': 'Visual difference tests are in progress.'
-        }
+        },
+        'details_url': context.payload.check_run.details_url
     })
 
     const post_options = {
@@ -163,7 +224,7 @@ function createCheckRunProgress(context) {
     req.write(data)
     req.end()
 }
-
+// Create a failed check run
 function createCheckRunFail(context, number) {
     updateToken()
     // Parameters for the API call
@@ -179,21 +240,22 @@ function createCheckRunFail(context, number) {
             "label": "Regenerate Goldens",
             "description": "Regenereate the Golden images.",
             "identifier": JSON.stringify({
-                "command": regenCommand,
-                "number": number
+                "c": regenCommand,
+                "n": number
             })
         }, {
             "label": "Reset Goldens",
             "description": "Reset goldens to master.",
             "identifier": JSON.stringify({
-                "command": masterCommand,
-                "number": number
+                "c": masterCommand,
+                "n": number
             })
         }],
         'output': {
             'title': CHECK_RUN_NAME,
             'summary': 'Visual difference tests failed.'
-        }
+        },
+        'details_url': context.payload.check_run.details_url
     })
 
     const post_options = {
@@ -224,7 +286,7 @@ function createCheckRunFail(context, number) {
     req.write(data)
     req.end()
 }
-
+// Create a completed check run
 function createCheckRunComplete(context) {
     updateToken()
     // Parameters for the API call
@@ -239,7 +301,8 @@ function createCheckRunComplete(context) {
         'output': {
             'title': CHECK_RUN_NAME,
             'summary': 'Visual difference tests passed!'
-        }
+        },
+        'details_url': context.payload.check_run.details_url
     })
 
     const post_options = {
@@ -271,7 +334,8 @@ function createCheckRunComplete(context) {
     req.end()
 }
 
-function getBranchName(context, num) {
+// Gets the branch name from the current PR and regenerates the goldens
+function getBranchNameAndRegenGoldens(context, num) {
     let branch_name = ''
 
     // Parameters for the API call
@@ -305,6 +369,7 @@ function getBranchName(context, num) {
     })
 }
 
+// Regenerates the goldens
 function regenGoldens(number, branch_name, context) {
     const token = process.env.TRAVIS_AUTH
     // Format the second request
@@ -352,11 +417,16 @@ function regenGoldens(number, branch_name, context) {
 function updateToken() {
     // Get the JWT
     var jwt = require('jsonwebtoken');
+
+    let key = process.env.PRIVATE_KEY
+    let buffer = new Buffer(key, 'base64')
+    let decoded = buffer.toString('ascii')
+
     var token = jwt.sign({
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + (10 * 60),
         iss: 41247
-    }, process.env.PRIVATE_KEY, {
+    }, decoded, {
         algorithm: 'RS256'
     });
 
@@ -422,8 +492,8 @@ function getAppToken(jwt) {
             token_info = JSON.parse(data)
             token = token_info.token
             latestToken = token
-            
-            if(res.statusCode == 200 || res.statusCode == 201) {
+
+            if (res.statusCode == 200 || res.statusCode == 201) {
                 console.log("Authenticated with GitHub successfully.")
             }
         })
