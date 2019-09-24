@@ -450,10 +450,8 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
             resp = JSON.parse(data)
 
             for (let element of resp.builds) {
-                if (element.hasOwnProperty('id')) {
-                    buildID = element.id
-                    break;
-                }
+                buildID = element.id
+                break;
             }
 
             let buildUrl = TRAVIS_PREFIX + repoPath.split("/repos/")[1] + TRAVIS_MIDDLE + buildID
@@ -465,8 +463,8 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
                         Once the build is done, the visual difference tests will be re-run automatically.',
                 number: issueNum
             })
-
-            getSHA(context, issueNum)
+            
+            reRunBuild(buildID)
 
             // Post a comment on the PR
             return context.github.issues.createComment(params)
@@ -477,108 +475,30 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
     })
 }
 
-function getSHA(context, issueNum) {
-    // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/pulls/' + issueNum,
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': GH_APP_NAME
-        }
-    }
-
-    // Get the branch name first
-    https.get(getOptions, (res) => {
-        let data = ''
-        let prInfo = {}
-        let shaVal = ''
-
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            prInfo = JSON.parse(data)
-            shaVal = prInfo.head.sha
-            listCheckSuites(context, shaVal)
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
-}
-
-function listCheckSuites(context, shaVal) {
-    // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/commits/' + shaVal + '/check-suites',
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json'
-        }
-    }
-
-    // Get the branch name first
-    https.get(getOptions, (res) => {
-        let data = ''
-        let checkInfo = {}
-        let checkSuiteID = 0
-
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            checkInfo = JSON.parse(data)
-
-            for (let element of checkInfo.check_suites) {
-                checkSuiteID = element.id
-                if(element.app.slug == "travis-ci") {
-                    break
-                }
-            }
-
-            reRunCheckSuite(context, checkSuiteID)
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
-}
-
-function reRunCheckSuite(context, checkSuiteID) {
-    updateToken()
+function reRunBuild(buildID) {
     // Parameters for the API call
     const https = require('https')
     const postOptions = {
-        hostname: 'api.github.com',
+        hostname: 'api.travis-ci.com',
         port: 443,
-        path: repoPath + '/check-suites/' + checkSuiteID + '/rerequest',
+        path: '/build/'+ buildID + '/restart',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json',
-            'Authorization': 'Token ' + latestToken
+            'Accept': 'application/json',
+            'Travis-API-Version': '3',
+            'Authorization': 'token ' + process.env.TRAVIS_AUTH
         }
     }
 
     // Send the request
-    const req = https.request(postOptions, (res) => {
-
+    https.get(postOptions, (res) => {
         res.on('data', (d) => {
-            console.log("Visual difference checks re-requested.")
+            process.stdout.write(d)
         })
+    }).on("error", (err) => {
+        console.log("Error: " + err.message)
     })
-    req.on('error', (error) => {
-        console.error(error)
-    })
-    req.end()
 }
 
 // Authentication functions
