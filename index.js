@@ -63,10 +63,12 @@ module.exports = app => {
 
         // are we regenerating the goldens from the master branch?
         if (context.payload.requested_action.identifier.includes(masterCommand)) {
-            regenGoldens(JSON.parse(context, context.payload.requested_action.identifier).n, "master")
+            regenGoldens(context, JSON.parse(context.payload.requested_action.identifier).n, "master")
         }
     })
 }
+
+const timer = ms => new Promise( res => setTimeout(res, ms));
 
 // Does this check run have a visual difference test?
 function hasVisualDiffTest(context, checkRunID, callback) {
@@ -165,8 +167,7 @@ function commentFailedVD(context) {
         body: 'Hey there! It looks like your "' + travis_pr_build + '" \
                build failed, due to the visual difference test failing. \
                Check out the details of the Travis build [here](' + url + '). \
-               To regenerate the goldens please click the "Details" link on the "Visual Difference Tests" check. \
-               If you decide to re-generate the goldens, please re-run the "Visual-difference-tests" Travis job afterwards.',
+               To regenerate the goldens please click the "Details" link on the "Visual Difference Tests" check.',
         number: issueNumber,
         owner: repoOwner,
         repo: repoName
@@ -212,10 +213,9 @@ function createCheckRunProgress(context) {
 
     // Send the request
     const req = https.request(postOptions, (res) => {
-        console.log(`statusCode: ${res.statusCode}`)
 
         res.on('data', (d) => {
-            process.stdout.write(d)
+            console.log("Visual difference checks in-progress.")
         })
     })
     req.on('error', (error) => {
@@ -274,10 +274,9 @@ function createCheckRunFail(context, issueNum) {
 
     // Send the request
     const req = https.request(postOptions, (res) => {
-        console.log(`statusCode: ${res.statusCode}`)
 
         res.on('data', (d) => {
-            process.stdout.write(d)
+            console.log("Visual difference checks failed.")
         })
     })
     req.on('error', (error) => {
@@ -321,10 +320,8 @@ function createCheckRunComplete(context) {
 
     // Send the request
     const req = https.request(postOptions, (res) => {
-        console.log(`statusCode: ${res.statusCode}`)
-
         res.on('data', (d) => {
-            process.stdout.write(d)
+            console.log("Visual difference checks passed.")
         })
     })
     req.on('error', (error) => {
@@ -354,14 +351,14 @@ function getBranchNameAndRegenGoldens(context, issueNum) {
     // Get the branch name first
     https.get(getOptions, (res) => {
         let data = ''
-        let pr_info = {}
+        let prInfo = {}
 
         res.on('data', (chunk) => {
             data += chunk
         })
         res.on('end', () => {
-            pr_info = JSON.parse(data)
-            branchName = pr_info.head.ref
+            prInfo = JSON.parse(data)
+            branchName = prInfo.head.ref
             regenGoldens(context, issueNum, branchName)
         })
     }).on("error", (err) => {
@@ -413,7 +410,8 @@ function regenGoldens(context, issueNum, branchName) {
             resp = JSON.parse(data)
             reqId = resp.request.id
 
-            getStatusRegen(context, issueNum, branchName, reqId)
+            console.log("Waiting for 5 seconds...")
+            timer(5000).then(_=>getStatusRegen(context, issueNum, branchName, reqId));
         })
     })
     req.on('error', (error) => {
@@ -430,17 +428,16 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
         hostname: 'api.travis-ci.com',
         port: 443,
         path: repoPathTravis + '/request/' + reqId,
-        method: 'POST',
+        method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'Content-Length': data.length,
             'Accept': 'application/json',
             'Travis-API-Version': '3',
             'Authorization': 'token ' + process.env.TRAVIS_AUTH
         }
     }
 
-    // Get the build href first
+    // Get the build url first
     https.get(getOptions, (res) => {
         let data = ''
         let resp = ''
@@ -459,18 +456,17 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
                 }
             }
 
-            let buildUrl = TRAVIS_PREFIX + repoPath.split("/repos/")[0] + TRAVIS_MIDDLE + buildID
+            let buildUrl = TRAVIS_PREFIX + repoPath.split("/repos/")[1] + TRAVIS_MIDDLE + buildID
 
             // Let the dev know what is going on.
             let params = context.issue({
                 body: 'The goldens will be regenerated off of the "' + branchName + '" branch shortly. \
-                        You can check the status of the build [here](' + buildUrl + ') \
-                        Once the build is done, the visual difference tests will be re- run automatically.',
+                        You can check the status of the build [here](' + buildUrl + '). \
+                        Once the build is done, the visual difference tests will be re-run automatically.',
                 number: issueNum
-
             })
 
-            reRequestCheckSuite(context)
+            getSHA(context, issueNum)
 
             // Post a comment on the PR
             return context.github.issues.createComment(params)
@@ -481,8 +477,108 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
     })
 }
 
-function reRequestCheckSuite(context) {
-    console.log(context)
+function getSHA(context, issueNum) {
+    // Parameters for the API call
+    const https = require('https')
+    const getOptions = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: repoPath + '/pulls/' + issueNum,
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': GH_APP_NAME
+        }
+    }
+
+    // Get the branch name first
+    https.get(getOptions, (res) => {
+        let data = ''
+        let prInfo = {}
+        let shaVal = ''
+
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+        res.on('end', () => {
+            prInfo = JSON.parse(data)
+            shaVal = prInfo.head.sha
+            listCheckSuites(context, shaVal)
+        })
+    }).on("error", (err) => {
+        console.log("Error: " + err.message)
+    })
+}
+
+function listCheckSuites(context, shaVal) {
+    // Parameters for the API call
+    const https = require('https')
+    const getOptions = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: repoPath + '/commits/' + shaVal + '/check-suites',
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': GH_APP_NAME,
+            'Accept': 'application/vnd.github.antiope-preview+json'
+        }
+    }
+
+    // Get the branch name first
+    https.get(getOptions, (res) => {
+        let data = ''
+        let checkInfo = {}
+        let checkSuiteID = 0
+
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+        res.on('end', () => {
+            checkInfo = JSON.parse(data)
+
+            for (let element of checkInfo.check_suites) {
+                checkSuiteID = element.id
+                if(element.app.slug == "travis-ci") {
+                    break
+                }
+            }
+
+            reRunCheckSuite(context, checkSuiteID)
+        })
+    }).on("error", (err) => {
+        console.log("Error: " + err.message)
+    })
+}
+
+function reRunCheckSuite(context, checkSuiteID) {
+    updateToken()
+    // Parameters for the API call
+    const https = require('https')
+    const postOptions = {
+        hostname: 'api.github.com',
+        port: 443,
+        path: repoPath + '/check-suites/' + checkSuiteID + '/rerequest',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': GH_APP_NAME,
+            'Accept': 'application/vnd.github.antiope-preview+json',
+            'Authorization': 'Token ' + latestToken
+        }
+    }
+
+    // Send the request
+    const req = https.request(postOptions, (res) => {
+
+        res.on('data', (d) => {
+            console.log("Visual difference checks re-requested.")
+        })
+    })
+    req.on('error', (error) => {
+        console.error(error)
+    })
+    req.end()
 }
 
 // Authentication functions
