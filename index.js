@@ -83,7 +83,8 @@ function hasVisualDiffTest(context, checkRunID, callback) {
             'Content-Type': 'application/json',
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
-        }
+        },
+        timeout: 2
     }
 
     // Get the summary
@@ -121,7 +122,8 @@ function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
             'Content-Type': 'application/json',
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
-        }
+        },
+        timeout: 2
     }
 
     // Get the summary
@@ -208,7 +210,8 @@ function createCheckRunProgress(context) {
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json',
             'Authorization': 'Token ' + latestToken
-        }
+        },
+        timeout: 2
     }
 
     // Send the request
@@ -269,7 +272,8 @@ function createCheckRunFail(context, issueNum) {
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json',
             'Authorization': 'Token ' + latestToken
-        }
+        },
+        timeout: 2
     }
 
     // Send the request
@@ -315,7 +319,8 @@ function createCheckRunComplete(context) {
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json',
             'Authorization': 'Token ' + latestToken
-        }
+        },
+        timeout: 2
     }
 
     // Send the request
@@ -345,7 +350,8 @@ function getBranchNameAndRegenGoldens(context, issueNum) {
         headers: {
             'Content-Type': 'application/json',
             'User-Agent': GH_APP_NAME
-        }
+        },
+        timeout: 2
     }
 
     // Get the branch name first
@@ -393,7 +399,8 @@ function regenGoldens(context, issueNum, branchName) {
             'Accept': 'application/json',
             'Travis-API-Version': '3',
             'Authorization': 'token ' + process.env.TRAVIS_AUTH
-        }
+        },
+        timeout: 2
     }
 
     // Send the request (ask travis to regenerate the goldens)
@@ -434,7 +441,8 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
             'Accept': 'application/json',
             'Travis-API-Version': '3',
             'Authorization': 'token ' + process.env.TRAVIS_AUTH
-        }
+        },
+        timeout: 2
     }
 
     // Get the build url first
@@ -488,7 +496,8 @@ function reRunBuild(buildID) {
             'Accept': 'application/json',
             'Travis-API-Version': '3',
             'Authorization': 'token ' + process.env.TRAVIS_AUTH
-        }
+        },
+        timeout: 2
     }
 
     // Send the request
@@ -533,7 +542,8 @@ function authenticateJWT(jwt) {
             'Authorization': 'Bearer ' + jwt,
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
-        }
+        },
+        timeout: 2
     }
     // Send the request
     const req = https.request(getOptions, (res) => {
@@ -563,7 +573,8 @@ function getAppToken(jwt) {
             'Accept': 'application/vnd.github.machine-man-preview+json',
             'User-Agent': GH_APP_NAME,
             'Content-Type': 'application/json'
-        }
+        },
+        timeout: 2
     }
     https.get(postOptions, (res) => {
         let data = ''
