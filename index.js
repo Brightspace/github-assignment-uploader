@@ -4,7 +4,7 @@ const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed*
 const CHECK_RUN_NAME = 'Visual Difference Tests'
 const PREFIX = "https://api.github.com"
 const TRAVIS_PREFIX = "https://travis-ci.com/"
-const TRAVIS_MIDDLE = "/jobs/"
+const TRAVIS_MIDDLE = "/builds/"
 
 var repoPath = ''
 var repoPathTravis = ''
@@ -35,7 +35,7 @@ module.exports = app => {
     // On a check run event perform some checks
     app.on('check_run', async context => {
         updateToken()
-        
+
         // If it's a travis PR build, check the progress and make a VD check run.
         if (context.payload.check_run.name == travis_pr_build) {
             hasVisualDiffTest(context, context.payload.check_run.id, createCheckRunProgress)
@@ -63,7 +63,7 @@ module.exports = app => {
 
         // are we regenerating the goldens from the master branch?
         if (context.payload.requested_action.identifier.includes(masterCommand)) {
-            regenGoldens(JSON.parse(context.payload.requested_action.identifier).n, "master", context)
+            regenGoldens(JSON.parse(context, context.payload.requested_action.identifier).n, "master")
         }
     })
 }
@@ -72,7 +72,7 @@ module.exports = app => {
 function hasVisualDiffTest(context, checkRunID, callback) {
     // Parameters for the API call
     const https = require('https')
-    const get_options = {
+    const getOptions = {
         hostname: 'api.github.com',
         port: 443,
         path: repoPath + '/check-runs/' + checkRunID,
@@ -85,7 +85,7 @@ function hasVisualDiffTest(context, checkRunID, callback) {
     }
 
     // Get the summary
-    https.get(get_options, (res) => {
+    https.get(getOptions, (res) => {
         let data = ''
 
         res.on('data', (chunk) => {
@@ -110,7 +110,7 @@ function checkIfHasVD(context, message, callback) {
 function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
     // Parameters for the API call
     const https = require('https')
-    const get_options = {
+    const getOptions = {
         hostname: 'api.github.com',
         port: 443,
         path: repoPath + '/check-runs/' + checkRunID,
@@ -123,7 +123,7 @@ function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
     }
 
     // Get the summary
-    https.get(get_options, (res) => {
+    https.get(getOptions, (res) => {
         let data = ''
 
         res.on('data', (chunk) => {
@@ -196,7 +196,7 @@ function createCheckRunProgress(context) {
         'details_url': context.payload.check_run.details_url
     })
 
-    const post_options = {
+    const postOptions = {
         hostname: 'api.github.com',
         port: 443,
         path: repoPath + '/check-runs',
@@ -211,7 +211,7 @@ function createCheckRunProgress(context) {
     }
 
     // Send the request
-    const req = https.request(post_options, (res) => {
+    const req = https.request(postOptions, (res) => {
         console.log(`statusCode: ${res.statusCode}`)
 
         res.on('data', (d) => {
@@ -225,7 +225,7 @@ function createCheckRunProgress(context) {
     req.end()
 }
 // Create a failed check run
-function createCheckRunFail(context, number) {
+function createCheckRunFail(context, issueNum) {
     updateToken()
     // Parameters for the API call
     const https = require('https')
@@ -241,14 +241,14 @@ function createCheckRunFail(context, number) {
             "description": "Regenereate the Golden images.",
             "identifier": JSON.stringify({
                 "c": regenCommand,
-                "n": number
+                "n": issueNum
             })
         }, {
             "label": "Reset Goldens",
             "description": "Reset goldens to master.",
             "identifier": JSON.stringify({
                 "c": masterCommand,
-                "n": number
+                "n": issueNum
             })
         }],
         'output': {
@@ -258,7 +258,7 @@ function createCheckRunFail(context, number) {
         'details_url': context.payload.check_run.details_url
     })
 
-    const post_options = {
+    const postOptions = {
         hostname: 'api.github.com',
         port: 443,
         path: repoPath + '/check-runs',
@@ -273,7 +273,7 @@ function createCheckRunFail(context, number) {
     }
 
     // Send the request
-    const req = https.request(post_options, (res) => {
+    const req = https.request(postOptions, (res) => {
         console.log(`statusCode: ${res.statusCode}`)
 
         res.on('data', (d) => {
@@ -305,7 +305,7 @@ function createCheckRunComplete(context) {
         'details_url': context.payload.check_run.details_url
     })
 
-    const post_options = {
+    const postOptions = {
         hostname: 'api.github.com',
         port: 443,
         path: repoPath + '/check-runs',
@@ -320,7 +320,7 @@ function createCheckRunComplete(context) {
     }
 
     // Send the request
-    const req = https.request(post_options, (res) => {
+    const req = https.request(postOptions, (res) => {
         console.log(`statusCode: ${res.statusCode}`)
 
         res.on('data', (d) => {
@@ -335,15 +335,15 @@ function createCheckRunComplete(context) {
 }
 
 // Gets the branch name from the current PR and regenerates the goldens
-function getBranchNameAndRegenGoldens(context, num) {
-    let branch_name = ''
+function getBranchNameAndRegenGoldens(context, issueNum) {
+    let branchName = ''
 
     // Parameters for the API call
     const https = require('https')
-    const get_options = {
+    const getOptions = {
         hostname: 'api.github.com',
         port: 443,
-        path: repoPath + '/pulls/' + num,
+        path: repoPath + '/pulls/' + issueNum,
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -352,7 +352,7 @@ function getBranchNameAndRegenGoldens(context, num) {
     }
 
     // Get the branch name first
-    https.get(get_options, (res) => {
+    https.get(getOptions, (res) => {
         let data = ''
         let pr_info = {}
 
@@ -361,8 +361,8 @@ function getBranchNameAndRegenGoldens(context, num) {
         })
         res.on('end', () => {
             pr_info = JSON.parse(data)
-            branch_name = pr_info.head.ref
-            regenGoldens(num, branch_name, context)
+            branchName = pr_info.head.ref
+            regenGoldens(context, issueNum, branchName)
         })
     }).on("error", (err) => {
         console.log("Error: " + err.message)
@@ -370,9 +370,8 @@ function getBranchNameAndRegenGoldens(context, num) {
 }
 
 // Regenerates the goldens
-function regenGoldens(number, branch_name, context) {
-    const token = process.env.TRAVIS_AUTH
-    // Format the second request
+function regenGoldens(context, issueNum, branchName) {
+    // Format the request
     const https = require('https')
     const data = JSON.stringify({
         "request": {
@@ -382,10 +381,11 @@ function regenGoldens(number, branch_name, context) {
                     "npm run test:diff:golden"
                 ]
             },
-            "branch": branch_name
+            "branch": branchName,
+            "message": "Regenerating the goldens from the '" + branchName + "' branch."
         }
     })
-    const post_options = {
+    const postOptions = {
         hostname: 'api.travis-ci.com',
         port: 443,
         path: repoPathTravis + '/requests',
@@ -395,16 +395,25 @@ function regenGoldens(number, branch_name, context) {
             'Content-Length': data.length,
             'Accept': 'application/json',
             'Travis-API-Version': '3',
-            'Authorization': 'token ' + token
+            'Authorization': 'token ' + process.env.TRAVIS_AUTH
         }
     }
 
-    // Send the request
-    const req = https.request(post_options, (res) => {
-        // console.log(`statusCode: ${res.statusCode}`)
+    // Send the request (ask travis to regenerate the goldens)
+    const req = https.request(postOptions, (res) => {
+        let data = ''
+        let resp = ''
+        let reqId = ''
 
-        res.on('data', (d) => {
-            process.stdout.write(d)
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+
+        res.on('end', () => {
+            resp = JSON.parse(data)
+            reqId = resp.request.id
+
+            getStatusRegen(context, issueNum, branchName, reqId)
         })
     })
     req.on('error', (error) => {
@@ -414,6 +423,69 @@ function regenGoldens(number, branch_name, context) {
     req.end()
 }
 
+function getStatusRegen(context, issueNum, branchName, reqId) {
+    // Get the build details from travis
+    const https = require('https')
+    const getOptions = {
+        hostname: 'api.travis-ci.com',
+        port: 443,
+        path: repoPathTravis + '/request/' + reqId,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length,
+            'Accept': 'application/json',
+            'Travis-API-Version': '3',
+            'Authorization': 'token ' + process.env.TRAVIS_AUTH
+        }
+    }
+
+    // Get the build href first
+    https.get(getOptions, (res) => {
+        let data = ''
+        let resp = ''
+        let buildID = ''
+
+        res.on('data', (chunk) => {
+            data += chunk
+        })
+        res.on('end', () => {
+            resp = JSON.parse(data)
+
+            for (let element of resp.builds) {
+                if (element.hasOwnProperty('id')) {
+                    buildID = element.id
+                    break;
+                }
+            }
+
+            let buildUrl = TRAVIS_PREFIX + repoPath.split("/repos/")[0] + TRAVIS_MIDDLE + buildID
+
+            // Let the dev know what is going on.
+            let params = context.issue({
+                body: 'The goldens will be regenerated off of the "' + branchName + '" branch shortly. \
+                        You can check the status of the build [here](' + buildUrl + ') \
+                        Once the build is done, the visual difference tests will be re- run automatically.',
+                number: issueNum
+
+            })
+
+            reRequestCheckSuite(context)
+
+            // Post a comment on the PR
+            return context.github.issues.createComment(params)
+
+        })
+    }).on("error", (err) => {
+        console.log("Error: " + err.message)
+    })
+}
+
+function reRequestCheckSuite(context) {
+    console.log(context)
+}
+
+// Authentication functions
 function updateToken() {
     // Get the JWT
     var jwt = require('jsonwebtoken');
@@ -432,12 +504,11 @@ function updateToken() {
 
     authenticateJWT(token);
 }
-
 function authenticateJWT(jwt) {
     // Authorize the JWT
     // Parameters for the API call
     const https = require('https')
-    const get_options = {
+    const getOptions = {
         hostname: 'api.github.com',
         port: 443,
         path: '/app',
@@ -449,8 +520,7 @@ function authenticateJWT(jwt) {
         }
     }
     // Send the request
-    const req = https.request(get_options, (res) => {
-        // console.log(`statusCode: ${res.statusCode}`)
+    const req = https.request(getOptions, (res) => {
         let data = ''
         res.on('data', (chunk) => {
             data += chunk
@@ -464,11 +534,10 @@ function authenticateJWT(jwt) {
     })
     req.end()
 }
-
 function getAppToken(jwt) {
     const https = require('https')
     // Get the app token
-    const post_options = {
+    const postOptions = {
         hostname: 'api.github.com',
         port: 443,
         path: '/app/installations/' + installationID + '/access_tokens',
@@ -480,8 +549,7 @@ function getAppToken(jwt) {
             'Content-Type': 'application/json'
         }
     }
-    https.get(post_options, (res) => {
-        // console.log(`statusCode: ${res.statusCode}`)
+    https.get(postOptions, (res) => {
         let data = ''
         let token_info = {}
 
@@ -494,7 +562,7 @@ function getAppToken(jwt) {
             latestToken = token
 
             if (res.statusCode == 200 || res.statusCode == 201) {
-                console.log("Authenticated with GitHub successfully.")
+                console.log("Success: Authenticated with GitHub successfully.")
             }
         })
     }).on("error", (err) => {
