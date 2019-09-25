@@ -1,24 +1,26 @@
-const GH_APP_NAME = 'visual-difference'
-const VD_TEST = 'Stage 2: Visual-difference-tests'
-const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
-const CHECK_RUN_NAME = 'Visual Difference Tests'
-const PREFIX = "https://api.github.com"
-const TRAVIS_PREFIX = "https://travis-ci.com/"
-const TRAVIS_MIDDLE = "/builds/"
+// Constants
+const GH_APP_NAME = 'visual-difference';
+const CHECK_RUN_NAME = 'Visual Difference Tests';
+const VD_TEST_MSG = 'Stage 2: Visual-difference-tests';
+const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**';
 
-var repoPath = ''
-var repoPathTravis = ''
+const PREFIX = "https://api.github.com";
+const TRAVIS_PREFIX = "https://travis-ci.com/";
+const TRAVIS_MIDDLE = "/builds/";
 
-var travis_pr_build = 'Travis CI - Pull Request'
-var failure = 'failure'
-var success = 'success'
-var regenCommand = 'r'
-var masterCommand = 'm'
+var repoPath = '';
+var repoPathTravis = '';
 
-var latestToken = ''
-var installationID = 0
+var travis_pr_build = 'Travis CI - Pull Request';
+var failure = 'failure';
+var success = 'success';
+var regenCommand = 'r';
+var masterCommand = 'm';
 
-var dictionary = {}
+var latestToken = '';
+var installationID = 0;
+
+var dictionary = {};
 
 const got = require('got');
 const { App } = require("@octokit/app");
@@ -30,12 +32,7 @@ const { request } = require("@octokit/request");
 module.exports = app => {
     // Update our stored information anytime there is an event.
     app.on('*', async context => {
-        installationID = context.payload.installation.id;
-        repoPath = context.payload.repository.url.split(PREFIX)[1];
-        repoPathTravis = repoPath.replace("/repos", "/repo")
-        var regex = /\/(?=[^\/]*$)/g
-        repoPathTravis = repoPathTravis.replace(regex, "%2F")
-        getToken()
+        await updateGlobals(context);
     })
 
     // On a check run event perform some checks
@@ -45,7 +42,7 @@ module.exports = app => {
         // If it's a travis PR build, check the progress and make a VD check run.
         if (context.payload.check_run.name == travis_pr_build) {
             const hasVDTest = await hasVisualDiffTest(context.payload.check_run.id);
-            if(hasVDTest) {
+            if (hasVDTest) {
                 createCheckRunProgress(context);
             }
         }
@@ -58,7 +55,7 @@ module.exports = app => {
         // If the travis PR build finished and finished, mark VD tests as completed.
         if (context.payload.check_run.conclusion == success && context.payload.check_run.name == travis_pr_build) {
             const hasVDTest = await hasVisualDiffTest(context.payload.check_run.id);
-            if(hasVDTest) {
+            if (hasVDTest) {
                 createCheckRunComplete(context);
             }
         }
@@ -80,36 +77,43 @@ module.exports = app => {
     })
 }
 
+async function updateGlobals(context) {
+    installationID = context.payload.installation.id;
+    repoPath = context.payload.repository.url.split(PREFIX)[1];
+    repoPathTravis = repoPath.replace("/repos", "/repo")
+    var regex = /\/(?=[^\/]*$)/g
+    repoPathTravis = repoPathTravis.replace(regex, "%2F")
+}
+
+
 // Timer function
-const timer = ms => new Promise( res => setTimeout(res, ms));
+const timer = ms => new Promise(res => setTimeout(res, ms));
 
 // Does this check run have a visual difference test?
 async function hasVisualDiffTest(checkRunID) {
-    // Parameters for the API call
-    const options = {
+
+    await got(
+        repoPath + '/check-runs/' + checkRunID, {
+        baseUrl: 'https://api.github.com',
         headers: {
             'Content-Type': 'application/json',
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
         },
         timeout: 2500
-    };
+    });
 
     try {
         const response = await got(
-            'https://api.github.com' + repoPath + '/check-runs/' + checkRunID,
-             options
+            '' + ,
+            options
         );
-        return checkIfHasVD(response.body);
+        return message.includes(VD_TEST_MSG);
 
     } catch (error) {
         console.log("hello")
         console.log(error.response.body);
     }
-}
-// Is there a visual difference test?
-function checkIfHasVD(message) {
-    return message.includes(VD_TEST);
 }
 
 // Get the Check Run Summary and Comment on a Failure
@@ -190,7 +194,7 @@ function commentFailedVD(context) {
 // Create an in-progress check-run
 function createCheckRunProgress(context) {
     console.log("Waiting for 5 seconds...")
-    timer(5000).then(_=>getToken());
+    timer(5000).then(_ => getToken());
 
     // Parameters for the API call
     const https = require('https')
@@ -438,7 +442,7 @@ function regenGoldens(context, issueNum, branchName) {
             reqId = resp.request.id
 
             console.log("Waiting for 5 seconds...")
-            timer(5000).then(_=>getStatusRegen(context, issueNum, branchName, reqId));
+            timer(5000).then(_ => getStatusRegen(context, issueNum, branchName, reqId));
         })
     })
     req.on('error', (error) => {
@@ -492,8 +496,8 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
                         Once the build is done, the visual difference tests will be re-run automatically.',
                 number: issueNum
             })
-            
-            if(dictionary.hasOwnProperty(issueNum)) {
+
+            if (dictionary.hasOwnProperty(issueNum)) {
                 reRunBuild(dictionary.issueNum)
             } else {
                 params = context.issue({
@@ -521,7 +525,7 @@ function reRunBuild(buildID) {
     const postOptions = {
         hostname: 'api.travis-ci.com',
         port: 443,
-        path: '/build/'+ buildID + '/restart',
+        path: '/build/' + buildID + '/restart',
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -543,20 +547,4 @@ function reRunBuild(buildID) {
         console.log("Error: " + err.message)
     })
     req.end()
-}
-
-// Authentication functions
-async function getToken() {
-    let key = process.env.PRIVATE_KEY;
-    let buffer = new Buffer.from(key, 'base64');
-    let decoded = buffer.toString('ascii');
-
-    const app = new App({ id: process.env.APP_ID, privateKey: decoded });
-
-    const installationAccessToken = await app.getInstallationAccessToken({
-      installationId
-    });
-
-    latestToken = installationAccessToken;
-    return installationAccessToken;
 }
