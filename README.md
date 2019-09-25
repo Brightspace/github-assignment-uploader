@@ -1,6 +1,6 @@
 # visual-difference-bot
 
-> A GitHub App built with [Probot](https://github.com/probot/probot) that The visual difference bot
+> A GitHub App built with [Probot](https://github.com/probot/probot) that comments on PRs when visual difference checks fail.
 
 ## Setup
 
@@ -12,12 +12,22 @@ npm install
 npm start
 ```
 
-## Contributing
+## Serverless Deployment
 
-If you have suggestions for how visual-difference-bot could be improved, or want to report a bug, open an issue! We'd love all and any contributions.
-
-For more, check out the [Contributing Guide](CONTRIBUTING.md).
+coming soon...
 
 ## License
 
-[ISC](LICENSE) © 2019 Diljot Garcha <Diljot.Garcha@D2L.com> (https://d2l.com)
+Copyright 2019 D2L Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
