@@ -18,6 +18,8 @@ var masterCommand = 'm'
 var latestToken = ''
 var installationID = 0
 
+var dictionary = {}
+
 /**
  * @param {import('probot').Application} app
  */
@@ -61,13 +63,14 @@ module.exports = app => {
             getBranchNameAndRegenGoldens(context, JSON.parse(context.payload.requested_action.identifier).n)
         }
 
-        // are we regenerating the goldens from the master branch?
+        // Are we regenerating the goldens from the master branch?
         if (context.payload.requested_action.identifier.includes(masterCommand)) {
             regenGoldens(context, JSON.parse(context.payload.requested_action.identifier).n, "master")
         }
     })
 }
 
+// Timer function
 const timer = ms => new Promise( res => setTimeout(res, ms));
 
 // Does this check run have a visual difference test?
@@ -84,7 +87,7 @@ function hasVisualDiffTest(context, checkRunID, callback) {
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Get the summary
@@ -123,7 +126,7 @@ function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Get the summary
@@ -154,6 +157,7 @@ function commentFailedVD(context) {
     let repoName = ''
     let repoOwner = ''
     let url = context.payload.check_run.details_url
+    let extID = context.payload.check_run.external_id
 
     for (let element of context.payload.check_run.pull_requests) {
         if (element.hasOwnProperty('number')) {
@@ -176,7 +180,7 @@ function commentFailedVD(context) {
     })
 
     // Mark the check run as failing
-    createCheckRunFail(context, issueNumber);
+    createCheckRunFail(context, issueNumber, extID);
 
     // Post a comment on the PR
     return context.github.issues.createComment(params)
@@ -184,7 +188,9 @@ function commentFailedVD(context) {
 
 // Create an in-progress check-run
 function createCheckRunProgress(context) {
-    updateToken()
+    console.log("Waiting for 5 seconds...")
+    timer(5000).then(_=>updateToken());
+
     // Parameters for the API call
     const https = require('https')
     const data = JSON.stringify({
@@ -211,14 +217,16 @@ function createCheckRunProgress(context) {
             'Accept': 'application/vnd.github.antiope-preview+json',
             'Authorization': 'Token ' + latestToken
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Send the request
     const req = https.request(postOptions, (res) => {
 
         res.on('data', (d) => {
-            console.log("Visual difference checks in-progress.")
+            if (res.statusCode == 200 || res.statusCode == 201) {
+                console.log("Visual difference checks in-progress.")
+            }
         })
     })
     req.on('error', (error) => {
@@ -228,7 +236,7 @@ function createCheckRunProgress(context) {
     req.end()
 }
 // Create a failed check run
-function createCheckRunFail(context, issueNum) {
+function createCheckRunFail(context, issueNum, extID) {
     updateToken()
     // Parameters for the API call
     const https = require('https')
@@ -261,6 +269,9 @@ function createCheckRunFail(context, issueNum) {
         'details_url': context.payload.check_run.details_url
     })
 
+    // Store the build ID
+    dictionary.issueNum = extID;
+
     const postOptions = {
         hostname: 'api.github.com',
         port: 443,
@@ -273,14 +284,16 @@ function createCheckRunFail(context, issueNum) {
             'Accept': 'application/vnd.github.antiope-preview+json',
             'Authorization': 'Token ' + latestToken
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Send the request
     const req = https.request(postOptions, (res) => {
 
         res.on('data', (d) => {
-            console.log("Visual difference checks failed.")
+            if (res.statusCode == 200 || res.statusCode == 201) {
+                console.log("Visual difference checks failed.")
+            }
         })
     })
     req.on('error', (error) => {
@@ -320,13 +333,15 @@ function createCheckRunComplete(context) {
             'Accept': 'application/vnd.github.antiope-preview+json',
             'Authorization': 'Token ' + latestToken
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Send the request
     const req = https.request(postOptions, (res) => {
         res.on('data', (d) => {
-            console.log("Visual difference checks passed.")
+            if (res.statusCode == 200 || res.statusCode == 201) {
+                console.log("Visual difference checks passed.")
+            }
         })
     })
     req.on('error', (error) => {
@@ -351,7 +366,7 @@ function getBranchNameAndRegenGoldens(context, issueNum) {
             'Content-Type': 'application/json',
             'User-Agent': GH_APP_NAME
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Get the branch name first
@@ -400,7 +415,7 @@ function regenGoldens(context, issueNum, branchName) {
             'Travis-API-Version': '3',
             'Authorization': 'token ' + process.env.TRAVIS_AUTH
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Send the request (ask travis to regenerate the goldens)
@@ -442,7 +457,7 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
             'Travis-API-Version': '3',
             'Authorization': 'token ' + process.env.TRAVIS_AUTH
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Get the build url first
@@ -472,7 +487,17 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
                 number: issueNum
             })
             
-            reRunBuild(buildID)
+            if(dictionary.hasOwnProperty(issueNum)) {
+                reRunBuild(dictionary.issueNum)
+            } else {
+                params = context.issue({
+                    body: 'The goldens will be regenerated off of the "' + branchName + '" branch shortly. \
+                            You can check the status of the build [here](' + buildUrl + '). \
+                            Once the build is done, you will need to re-run the visual difference tests manually using the GitHub UI. \
+                            Normally, we can do this for you, but we were unable to perform the request this time.',
+                    number: issueNum
+                })
+            }
 
             // Post a comment on the PR
             return context.github.issues.createComment(params)
@@ -497,13 +522,15 @@ function reRunBuild(buildID) {
             'Travis-API-Version': '3',
             'Authorization': 'token ' + process.env.TRAVIS_AUTH
         },
-        timeout: 2
+        timeout: 2500
     }
 
     // Send the request
     https.get(postOptions, (res) => {
         res.on('data', (d) => {
-            process.stdout.write(d)
+            if (res.statusCode == 200 || res.statusCode == 201) {
+                console.log("Requested re-run of build.")
+            }
         })
     }).on("error", (err) => {
         console.log("Error: " + err.message)
@@ -516,7 +543,7 @@ function updateToken() {
     var jwt = require('jsonwebtoken');
 
     let key = process.env.PRIVATE_KEY
-    let buffer = new Buffer(key, 'base64')
+    let buffer = new Buffer.from(key, 'base64')
     let decoded = buffer.toString('ascii')
 
     var token = jwt.sign({
@@ -543,7 +570,7 @@ function authenticateJWT(jwt) {
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
         },
-        timeout: 2
+        timeout: 2500
     }
     // Send the request
     const req = https.request(getOptions, (res) => {
@@ -574,7 +601,7 @@ function getAppToken(jwt) {
             'User-Agent': GH_APP_NAME,
             'Content-Type': 'application/json'
         },
-        timeout: 2
+        timeout: 2500
     }
     https.get(postOptions, (res) => {
         let data = ''
