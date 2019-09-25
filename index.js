@@ -20,27 +20,34 @@ var installationID = 0
 
 var dictionary = {}
 
+const got = require('got');
+const { App } = require("@octokit/app");
+const { request } = require("@octokit/request");
+
 /**
  * @param {import('probot').Application} app
  */
 module.exports = app => {
     // Update our stored information anytime there is an event.
     app.on('*', async context => {
-        installationID = context.payload.installation.id
-        repoPath = context.payload.repository.url.split(PREFIX)[1]
+        installationID = context.payload.installation.id;
+        repoPath = context.payload.repository.url.split(PREFIX)[1];
         repoPathTravis = repoPath.replace("/repos", "/repo")
         var regex = /\/(?=[^\/]*$)/g
         repoPathTravis = repoPathTravis.replace(regex, "%2F")
-        updateToken()
+        getToken()
     })
 
     // On a check run event perform some checks
     app.on('check_run', async context => {
-        updateToken()
+        console.log(getToken())
 
         // If it's a travis PR build, check the progress and make a VD check run.
         if (context.payload.check_run.name == travis_pr_build) {
-            hasVisualDiffTest(context, context.payload.check_run.id, createCheckRunProgress)
+            const hasVDTest = await hasVisualDiffTest(context.payload.check_run.id);
+            if(hasVDTest) {
+                createCheckRunProgress(context);
+            }
         }
 
         // If the travis PR build finished and failed, check if VD tests failed.
@@ -50,13 +57,16 @@ module.exports = app => {
 
         // If the travis PR build finished and finished, mark VD tests as completed.
         if (context.payload.check_run.conclusion == success && context.payload.check_run.name == travis_pr_build) {
-            hasVisualDiffTest(context, context.payload.check_run.id, createCheckRunComplete)
+            const hasVDTest = await hasVisualDiffTest(context.payload.check_run.id);
+            if(hasVDTest) {
+                createCheckRunComplete(context);
+            }
         }
     })
 
     // On a requested action button press from the user
     app.on('check_run.requested_action', async context => {
-        updateToken()
+        getToken()
 
         // Are we regenerating the goldens from the current branch?
         if (context.payload.requested_action.identifier.includes(regenCommand)) {
@@ -74,42 +84,32 @@ module.exports = app => {
 const timer = ms => new Promise( res => setTimeout(res, ms));
 
 // Does this check run have a visual difference test?
-function hasVisualDiffTest(context, checkRunID, callback) {
+async function hasVisualDiffTest(checkRunID) {
     // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/check-runs/' + checkRunID,
-        method: 'GET',
+    const options = {
         headers: {
             'Content-Type': 'application/json',
             'User-Agent': GH_APP_NAME,
             'Accept': 'application/vnd.github.antiope-preview+json'
         },
         timeout: 2500
+    };
+
+    try {
+        const response = await got(
+            'https://api.github.com' + repoPath + '/check-runs/' + checkRunID,
+             options
+        );
+        return checkIfHasVD(response.body);
+
+    } catch (error) {
+        console.log("hello")
+        console.log(error.response.body);
     }
-
-    // Get the summary
-    https.get(getOptions, (res) => {
-        let data = ''
-
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            // Is there a visual difference test?
-            checkIfHasVD(context, String(data), callback)
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
 }
 // Is there a visual difference test?
-function checkIfHasVD(context, message, callback) {
-    if (message.includes(VD_TEST)) {
-        callback(context)
-    }
+function checkIfHasVD(message) {
+    return message.includes(VD_TEST);
 }
 
 // Get the Check Run Summary and Comment on a Failure
@@ -130,7 +130,7 @@ function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
     }
 
     // Get the summary
-    https.get(getOptions, (res) => {
+    const req = https.get(getOptions, (res) => {
         let data = ''
 
         res.on('data', (chunk) => {
@@ -143,6 +143,7 @@ function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
     }).on("error", (err) => {
         console.log("Error: " + err.message)
     })
+    req.end()
 }
 // Did the visual difference test fail? Leave a comment if so.
 function checkIfVDBuildFailedAndComment(context, message) {
@@ -189,7 +190,7 @@ function commentFailedVD(context) {
 // Create an in-progress check-run
 function createCheckRunProgress(context) {
     console.log("Waiting for 5 seconds...")
-    timer(5000).then(_=>updateToken());
+    timer(5000).then(_=>getToken());
 
     // Parameters for the API call
     const https = require('https')
@@ -231,13 +232,14 @@ function createCheckRunProgress(context) {
     })
     req.on('error', (error) => {
         console.error(error)
+
     })
     req.write(data)
     req.end()
 }
 // Create a failed check run
 function createCheckRunFail(context, issueNum, extID) {
-    updateToken()
+    getToken()
     // Parameters for the API call
     const https = require('https')
     const data = JSON.stringify({
@@ -298,13 +300,14 @@ function createCheckRunFail(context, issueNum, extID) {
     })
     req.on('error', (error) => {
         console.error(error)
+
     })
     req.write(data)
     req.end()
 }
 // Create a completed check run
 function createCheckRunComplete(context) {
-    updateToken()
+    getToken()
     // Parameters for the API call
     const https = require('https')
     const data = JSON.stringify({
@@ -346,6 +349,7 @@ function createCheckRunComplete(context) {
     })
     req.on('error', (error) => {
         console.error(error)
+
     })
     req.write(data)
     req.end()
@@ -370,7 +374,7 @@ function getBranchNameAndRegenGoldens(context, issueNum) {
     }
 
     // Get the branch name first
-    https.get(getOptions, (res) => {
+    const req = https.get(getOptions, (res) => {
         let data = ''
         let prInfo = {}
 
@@ -385,6 +389,7 @@ function getBranchNameAndRegenGoldens(context, issueNum) {
     }).on("error", (err) => {
         console.log("Error: " + err.message)
     })
+    req.end()
 }
 
 // Regenerates the goldens
@@ -438,6 +443,7 @@ function regenGoldens(context, issueNum, branchName) {
     })
     req.on('error', (error) => {
         console.error(error)
+
     })
     req.write(data)
     req.end()
@@ -461,7 +467,7 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
     }
 
     // Get the build url first
-    https.get(getOptions, (res) => {
+    const req = https.get(getOptions, (res) => {
         let data = ''
         let resp = ''
         let buildID = ''
@@ -506,6 +512,7 @@ function getStatusRegen(context, issueNum, branchName, reqId) {
     }).on("error", (err) => {
         console.log("Error: " + err.message)
     })
+    req.end()
 }
 
 function reRunBuild(buildID) {
@@ -526,7 +533,7 @@ function reRunBuild(buildID) {
     }
 
     // Send the request
-    https.get(postOptions, (res) => {
+    const req = https.get(postOptions, (res) => {
         res.on('data', (d) => {
             if (res.statusCode == 200 || res.statusCode == 201) {
                 console.log("Requested re-run of build.")
@@ -535,91 +542,21 @@ function reRunBuild(buildID) {
     }).on("error", (err) => {
         console.log("Error: " + err.message)
     })
+    req.end()
 }
 
 // Authentication functions
-function updateToken() {
-    // Get the JWT
-    var jwt = require('jsonwebtoken');
+async function getToken() {
+    let key = process.env.PRIVATE_KEY;
+    let buffer = new Buffer.from(key, 'base64');
+    let decoded = buffer.toString('ascii');
 
-    let key = process.env.PRIVATE_KEY
-    let buffer = new Buffer.from(key, 'base64')
-    let decoded = buffer.toString('ascii')
+    const app = new App({ id: process.env.APP_ID, privateKey: decoded });
 
-    var token = jwt.sign({
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + (10 * 60),
-        iss: 41247
-    }, decoded, {
-        algorithm: 'RS256'
+    const installationAccessToken = await app.getInstallationAccessToken({
+      installationId
     });
 
-    authenticateJWT(token);
-}
-function authenticateJWT(jwt) {
-    // Authorize the JWT
-    // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: '/app',
-        method: 'GET',
-        headers: {
-            'Authorization': 'Bearer ' + jwt,
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json'
-        },
-        timeout: 2500
-    }
-    // Send the request
-    const req = https.request(getOptions, (res) => {
-        let data = ''
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            getAppToken(jwt)
-        })
-    })
-    req.on('error', (error) => {
-        console.error(error)
-    })
-    req.end()
-}
-function getAppToken(jwt) {
-    const https = require('https')
-    // Get the app token
-    const postOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: '/app/installations/' + installationID + '/access_tokens',
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + jwt,
-            'Accept': 'application/vnd.github.machine-man-preview+json',
-            'User-Agent': GH_APP_NAME,
-            'Content-Type': 'application/json'
-        },
-        timeout: 2500
-    }
-    https.get(postOptions, (res) => {
-        let data = ''
-        let token_info = {}
-
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            token_info = JSON.parse(data)
-            token = token_info.token
-            latestToken = token
-
-            if (res.statusCode == 200 || res.statusCode == 201) {
-                console.log("Success: Authenticated with GitHub successfully.")
-            }
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
+    latestToken = installationAccessToken;
+    return installationAccessToken;
 }
