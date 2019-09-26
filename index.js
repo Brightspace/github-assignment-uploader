@@ -154,13 +154,6 @@ async function markCRFailed(context) {
 
     map.issueNum = extID;
 
-    for (let element of context.payload.check_run.pull_requests) {
-        if (element.hasOwnProperty('number')) {
-            issueNum = element.number;
-            break;
-        }
-    }
-
     const params = context.issue({
         name: CHECK_RUN_NAME,
         head_sha: context.payload.check_run.head_sha,
@@ -297,13 +290,13 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
         });
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-            const buildID = 0;
+            let buildID = 0;
             for (let element of response.body.builds) {
                 buildID = element.id;
                 break;
             }
             const buildURL = `${TRAVIS_HOME_BASE}${repoPath.split('/repos/')[1]}${TRAVIS_BUILDS_PATH}${buildID}`
-            
+
             console.log(`${INFO_PREFIX}Leaving a comment on the PR to notify the dev of the regeneration.`);
 
             // Let the dev know what is going on.
@@ -313,7 +306,7 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
                         Once the build is done, the visual difference tests will be re-run automatically.`,
                 number: issueNum
             })
-            
+
             await reRunBuild(map.issueNum);
 
             // Post a comment on the PR
