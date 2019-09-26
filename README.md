@@ -2,6 +2,15 @@
 
 > A GitHub App built with [Probot](https://github.com/probot/probot) that comments on PRs when Visual Difference checks fail.
 
+## Table of Contents
+- 1 - [Setup](README.md/#setup)
+- 2 - [Creating a GitHub app](README.md/#creating-a-github-app)
+- 3 - [Serverless Deployment to AWS Lambda](README.md/#serverless-deployment-to-aws-lambda)
+- 4 - [Testing Locally](README.md/#testing-locally)
+- 5 - [Setup needed for Visual Difference testing on a Repo](README.md/#repository-setup)
+- 6 - [Secrets Management](README.md/#secrets-management)
+- 7 - [License](README.md/#license)
+
 ## Setup
 
 ```sh
@@ -51,7 +60,7 @@ ngrok http 3000
 3. Be sure to change the Webhook URL in the GitHub application settings to be your ngrok tunnel URL.
 4. Create a GitHub event to trigger the bot.
 
-## Setup needed for Visual Difference testing on a Repo
+## Repository Setup
 
 In order to have this bot watch the Visual Difference tests for a specific repo, you need to have a custom Travis CI configuration.
 
@@ -72,6 +81,13 @@ jobs:
       fi
 ```
 3. The important thing to note above, is that the jobs have been split into multiple stages. The first stage is the regular code tests you want to run (with whatever name you would like it to be). The second stage is the important one (it must be the second stage) and the name must be `visual-difference-tests`. This is what the bot will use to check the status of your Visual Difference tests, additionally the Travis check's name must be "Travis CI - Pull Request".
+
+## Secrets Management
+
+1. Manually set the secrets in your .env file (see [example](.env.example)) for local testing.
+2. Manually copy the secrets into your AWS Lambda's environment variables.
+
+(Goal: make this more robust later with AWS secrets manager)
 
 ## License
 
