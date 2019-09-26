@@ -31,8 +31,6 @@ const DEFAULT_BRANCH = 'master';
 // Global Variables
 var repoPath = '';
 var repoPathTravis = ''
-var installationID = 0;
-var map = {};
 
 // Imports
 const got = require('got');
@@ -83,16 +81,23 @@ module.exports = app => {
 
     // When the user requests an action on a failed check run.
     app.on('check_run.requested_action', async context => {
-        let issueNum = JSON.parse(context.payload.requested_action.identifier).n;
         // Are we regenerating the goldens from the current branch?
         if (context.payload.requested_action.identifier.includes(REGEN_CMD)) {
+            // First we need to get the issue number for this PR
+            let issueNum = 0;
+            
+            for (let element of context.payload.check_run.check_suite.pull_requests) {
+                issueNum = element.number;
+                break;
+            }
+
             const branch = await getBranchFromPR(context, issueNum);
-            await regenGoldens(context, issueNum, branch);
+            await regenGoldens(context, branch);
         }
 
         // Are we regenerating the goldens from the master branch?
-        if (context.payload.requested_action.identifier.includes(MASTER_CMD)) {
-            await regenGoldens(context, issueNum, DEFAULT_BRANCH);
+        if (context.payload.requested_action.identifier == MASTER_CMD) {
+            await regenGoldens(context, DEFAULT_BRANCH);
         }
     });
 }
@@ -102,7 +107,6 @@ const timer = ms => new Promise(res => setTimeout(res, ms));
 
 // Update our global variables
 async function updateGlobals(context) {
-    installationID = context.payload.installation.id;
     repoPath = context.payload.repository.url.split(GITHUB_API_BASE)[1];
     repoPathTravis = repoPath.replace('/repos', '/repo');
     var regex = /\/(?=[^\/]*$)/g;
@@ -126,7 +130,7 @@ async function confirmVDFailure(context) {
     });
 
     const check_run_info = await context.github.checks.get(params);
-    return String(check_run_info.data.output.text).includes(VD_TEST_FAILURE);
+    return check_run_info.data.output.text.includes(VD_TEST_FAILURE);
 }
 
 // Did the visual difference tests get cancelled this check run?
@@ -136,7 +140,7 @@ async function confirmVDCancel(context) {
     });
 
     const check_run_info = await context.github.checks.get(params);
-    return String(check_run_info.data.output.text).includes(VD_TEST_CANCEL);
+    return check_run_info.data.output.text.includes(VD_TEST_CANCEL);
 }
 
 // Did the visual difference tests pass this check run?
@@ -146,7 +150,7 @@ async function confirmVDPass(context) {
     });
 
     const check_run_info = await context.github.checks.get(params);
-    return String(check_run_info.data.output.text).includes(VD_TEST_PASS);
+    return check_run_info.data.output.text.includes(VD_TEST_PASS);
 }
 
 // Creates an in-progress VD check run.
@@ -217,8 +221,6 @@ async function markCRFailed(context) {
     const issueNum = await getIssueNumFromCR(context);
     const extID = context.payload.check_run.external_id;
 
-    map.issueNum = extID;
-
     const params = context.issue({
         name: CHECK_RUN_NAME,
         head_sha: context.payload.check_run.head_sha,
@@ -229,17 +231,11 @@ async function markCRFailed(context) {
         actions: [{
             label: 'Regenerate Goldens',
             description: 'Regenereate the Golden images.',
-            identifier: JSON.stringify({
-                c: REGEN_CMD,
-                n: issueNum
-            })
+            identifier: REGEN_CMD
         }, {
             label: 'Reset Goldens',
             description: 'Reset Goldens to master.',
-            identifier: JSON.stringify({
-                c: MASTER_CMD,
-                n: issueNum
-            })
+            identifier: MASTER_CMD
         }],
         output: {
             title: CHECK_RUN_NAME,
@@ -291,15 +287,24 @@ async function getIssueNumFromCR(context) {
 // Gets the branch name of the pull associated with a check run event
 async function getBranchFromPR(context, issueNum) {
     const params = context.issue({
-        pull_number: issueNum
+        pull_number: issueNum,
+        number: issueNum
     });
 
-    const pr_info = await context.github.pulls.get(params);
-    return pr_info.head.ref;
+    const pr_info = await context.github.pullRequests.get(params);
+    return pr_info.data.head.ref;
 }
 
 // Regenerates the Goldens, given the branch name
-async function regenGoldens(context, issueNum, branchName) {
+async function regenGoldens(context, branchName) {
+    // First we need to get the issue number for this PR
+    let issueNum = 0;
+    
+    for (let element of context.payload.check_run.check_suite.pull_requests) {
+        issueNum = element.number;
+        break;
+    }
+
     // Custom build data to send to Travis
     const data = JSON.stringify({
         request: {
@@ -310,7 +315,7 @@ async function regenGoldens(context, issueNum, branchName) {
                 ]
             },
             branch: branchName,
-            message: `[${issueNum}] Regenerating the Goldens from the "${branchName}" branch.`
+            message: `[#${issueNum}] Regenerating the Goldens from the "${branchName}" branch.`
         }
     });
 
@@ -335,8 +340,8 @@ async function regenGoldens(context, issueNum, branchName) {
             const data = await JSON.parse(response.body);
             const reqID = data.request.id;
 
-            console.log(`${INFO_PREFIX}Waiting for 8 seconds...`);
-            await timer(8000).then(_ => makeCommentRegen(context, issueNum, branchName, reqID));
+            console.log(`${INFO_PREFIX}Waiting for 3 seconds...`);
+            await timer(3000).then(_ => makeCommentRegen(context, issueNum, branchName, reqID));
         }
     } catch (error) {
         console.log(`${ERROR_PREFIX}${error}`);
@@ -378,7 +383,7 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
                 number: issueNum
             });
 
-            await reRunBuild(map.issueNum);
+            await reRunBuild(context, issueNum);
 
             // Post a comment on the PR
             return context.github.issues.createComment(params);
@@ -389,7 +394,31 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
 }
 
 // Re-run the Travis PR Build
-async function reRunBuild(buildID) {
+async function reRunBuild(context, issueNum) {
+    // Get the SHA commit for this PR from the issue number
+    const pr_params = context.issue({
+        pull_number: issueNum,
+        number: issueNum
+    });
+    const pr_info = await context.github.pullRequests.get(pr_params);
+    
+    // Get the Travis CI build ID from that SHA commit (the visual difference test we want to re-run)
+    const sha = pr_info.data.head.sha;
+    const cr_params = context.issue({
+        ref: sha
+    });
+    const cr_info = await context.github.checks.listForRef(cr_params);
+
+    // Get the build ID
+    let buildID = 0;
+    for (let element of cr_info.data.check_runs) {
+        if(element.name == TRAVIS_PR_BUILD) {
+            buildID = element.external_id;
+            break;
+        }
+    }
+    
+    // Now tell Travis to restart that build
     try {
         const response = await got.post(
             `/build/${buildID}/restart`, {
