@@ -3,6 +3,8 @@
 const CHECK_RUN_NAME = 'Visual Difference Tests';
 const VD_TEST_MSG = 'Stage 2: Visual-difference-tests';
 const VD_TEST_FAILURE = '### Stage 2: Visual-difference-tests\nThis stage **failed**';
+const VD_TEST_CANCEL = '### Stage 2: Visual-difference-tests\nThis stage **canceled**.';
+const VD_TEST_PASS = '### Stage 2: Visual-difference-tests\nThis stage **passed**.';
 const GITHUB_API_BASE = 'https://api.github.com';
 const TRAVIS_API_BASE = 'https://api.travis-ci.com'
 const TRAVIS_HOME_BASE = 'https://travis-ci.com/';
@@ -67,6 +69,14 @@ module.exports = app => {
                 // If this travis PR has a VD test and it has failed.
                 // Mark our VD check run as failed.
                 await markCRCancelled(context);
+            } else if(hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == FAILURE && await confirmVDCancel(context)) {
+                // If this travis PR has a VD test and the build failed and the VD was cancelled.
+                // Mark our VD check run as cancelled.
+                await markCRCancelled(context);
+            } else if(hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == FAILURE && await confirmVDPass(context)) {
+                // If this travis PR has a VD test and the build failed but the VD passed.
+                // Mark our VD check run as passed.
+                await markCRComplete(context);
             }
         }
     });
