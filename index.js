@@ -53,19 +53,19 @@ module.exports = app => {
             if (hasVDTest && context.payload.check_run.status == QUEUED) {
                 // If this travis PR has a VD test and it's queued.
                 // Create our VD check run.
-                createInProgressCR(context);
+                await createInProgressCR(context);
             } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == SUCCESS) {
                 // If this travis PR has a VD test and it's finished.
                 // Finish our VD check run.
-                markCRComplete(context);
+                await markCRComplete(context);
             } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == FAILURE && await confirmVDFailure(context)) {
                 // If this travis PR has a VD test and it has failed.
                 // Mark our VD check run as failed.
-                markCRFailed(context);
+                await markCRFailed(context);
             } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == CANCELLED) {
                 // If this travis PR has a VD test and it has failed.
                 // Mark our VD check run as failed.
-                markCRCancelled(context);
+                await markCRCancelled(context);
             }
         }
     });
@@ -76,12 +76,12 @@ module.exports = app => {
         // Are we regenerating the goldens from the current branch?
         if (context.payload.requested_action.identifier.includes(REGEN_CMD)) {
             let branch = await getBranchFromPR(context, issueNum);
-            regenGoldens(context, issueNum, branch);
+            await regenGoldens(context, issueNum, branch);
         }
 
         // Are we regenerating the goldens from the master branch?
         if (context.payload.requested_action.identifier.includes(MASTER_CMD)) {
-            regenGoldens(context, issueNum, DEFAULT_BRANCH);
+            await regenGoldens(context, issueNum, DEFAULT_BRANCH);
         }
     });
 }
