@@ -1,3 +1,4 @@
+// index.js
 // Constants
 const CHECK_RUN_NAME = 'Visual Difference Tests';
 const VD_TEST_MSG = 'Stage 2: Visual-difference-tests';
@@ -75,7 +76,7 @@ module.exports = app => {
         let issueNum = JSON.parse(context.payload.requested_action.identifier).n;
         // Are we regenerating the goldens from the current branch?
         if (context.payload.requested_action.identifier.includes(REGEN_CMD)) {
-            let branch = await getBranchFromPR(context, issueNum);
+            const branch = await getBranchFromPR(context, issueNum);
             await regenGoldens(context, issueNum, branch);
         }
 
@@ -130,7 +131,7 @@ async function createInProgressCR(context) {
             summary: 'Visual difference tests are in progress.'
         },
         details_url: context.payload.check_run.details_url
-    })
+    });
 
     console.log(`${INFO_PREFIX}Visual difference tests are in progress.`);
 
@@ -151,7 +152,7 @@ async function markCRComplete(context) {
             summary: 'Visual difference tests passed!'
         },
         details_url: context.payload.check_run.details_url
-    })
+    });
 
     console.log(`${INFO_PREFIX}Visual difference tests passed.`);
 
@@ -172,7 +173,7 @@ async function markCRCancelled(context) {
             summary: 'Visual difference tests were cancelled.'
         },
         details_url: context.payload.check_run.details_url
-    })
+    });
 
     console.log(`${INFO_PREFIX}Visual difference tests were cancelled.`);
 
@@ -304,7 +305,7 @@ async function regenGoldens(context, issueNum, branchName) {
             const data = await JSON.parse(response.body);
             const reqID = data.request.id;
 
-            console.log(`${INFO_PREFIX}Waiting for 8 seconds...`)
+            console.log(`${INFO_PREFIX}Waiting for 8 seconds...`);
             await timer(8000).then(_ => makeCommentRegen(context, issueNum, branchName, reqID));
         }
     } catch (error) {
@@ -335,22 +336,22 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
                 buildID = element.id;
                 break;
             }
-            const buildURL = `${TRAVIS_HOME_BASE}${repoPath.split('/repos/')[1]}${TRAVIS_BUILDS_PATH}${buildID}`
+            const buildURL = `${TRAVIS_HOME_BASE}${repoPath.split('/repos/')[1]}${TRAVIS_BUILDS_PATH}${buildID}`;
 
             console.log(`${INFO_PREFIX}Leaving a comment on the PR to notify the dev of the regeneration.`);
 
             // Let the dev know what is going on.
-            let params = context.issue({
+            const params = context.issue({
                 body: `The goldens will be regenerated off of the "${branchName}" branch shortly. \
                         You can check the status of the build [here](${buildURL}). \
                         Once the build is done, the visual difference tests will be re-run automatically.`,
                 number: issueNum
-            })
+            });
 
             await reRunBuild(map.issueNum);
 
             // Post a comment on the PR
-            return context.github.issues.createComment(params)
+            return context.github.issues.createComment(params);
         }
     } catch (error) {
         console.log(`${ERROR_PREFIX}${error}`);
