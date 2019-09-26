@@ -7,7 +7,7 @@
 - 2 - [Creating a GitHub app](README.md/#creating-a-github-app)
 - 3 - [Serverless Deployment to AWS Lambda](README.md/#serverless-deployment-to-aws-lambda)
 - 4 - [Testing Locally](README.md/#testing-locally)
-- 5 - [Setup needed for Visual Difference testing on a Repo](README.md/#repository-setup)
+- 5 - [Repository Setup](README.md/#repository-setup)
 - 6 - [Secrets Management](README.md/#secrets-management)
 - 7 - [License](README.md/#license)
 
