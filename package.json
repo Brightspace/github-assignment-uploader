@@ -20,8 +20,6 @@
     "test:watch": "jest --watch --notify --notifyMode=change --coverage"
   },
   "dependencies": {
-    "@octokit/app": "^4.1.0",
-    "@octokit/rest": "^16.30.1",
     "@probot/serverless-lambda": "^0.3.0",
     "got": "^9.6.0",
     "probot": "^7.5.3"

@@ -1,24 +1,39 @@
-const GH_APP_NAME = 'visual-difference'
-const VD_TEST = 'Stage 2: Visual-difference-tests'
-const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**'
-const CHECK_RUN_NAME = 'Visual Difference Tests'
-const PREFIX = "https://api.github.com"
-const TRAVIS_PREFIX = "https://travis-ci.com/"
-const TRAVIS_MIDDLE = "/builds/"
+// index.js
+// Constants
+const CHECK_RUN_NAME = 'Visual Difference Tests';
+const VD_TEST_MSG = 'Stage 2: Visual-difference-tests';
+const VD_TEST_FAILURE = '### Stage 2: Visual-difference-tests\nThis stage **failed**';
+const GITHUB_API_BASE = 'https://api.github.com';
+const TRAVIS_API_BASE = 'https://api.travis-ci.com'
+const TRAVIS_HOME_BASE = 'https://travis-ci.com/';
+const TRAVIS_BUILDS_PATH = '/builds/';
+const TRAVIS_PR_BUILD = 'Travis CI - Pull Request';
 
-var repoPath = ''
+// Statuses
+const QUEUED = 'queued';
+const COMPLETED = 'completed';
+const IN_PROG = 'in_progress';
+
+// Conclusions
+const FAILURE = 'failure';
+const SUCCESS = 'success';
+const CANCELLED = 'cancelled';
+
+const REGEN_CMD = 'r';
+const MASTER_CMD = 'm';
+const REGEN_NPM_CMD = 'npm run test:diff:golden';
+const INFO_PREFIX = '[INFO] ';
+const ERROR_PREFIX = '[ERROR] ';
+const DEFAULT_BRANCH = 'master';
+
+// Global Variables
+var repoPath = '';
 var repoPathTravis = ''
+var installationID = 0;
+var map = {};
 
-var travis_pr_build = 'Travis CI - Pull Request'
-var failure = 'failure'
-var success = 'success'
-var regenCommand = 'r'
-var masterCommand = 'm'
-
-var latestToken = ''
-var installationID = 0
-
-var dictionary = {}
+// Imports
+const got = require('got');
 
 /**
  * @param {import('probot').Application} app
@@ -26,600 +41,342 @@ var dictionary = {}
 module.exports = app => {
     // Update our stored information anytime there is an event.
     app.on('*', async context => {
-        installationID = context.payload.installation.id
-        repoPath = context.payload.repository.url.split(PREFIX)[1]
-        repoPathTravis = repoPath.replace("/repos", "/repo")
-        var regex = /\/(?=[^\/]*$)/g
-        repoPathTravis = repoPathTravis.replace(regex, "%2F")
-        updateToken()
-    })
+        console.log(`${INFO_PREFIX}Updated global information from GitHub event.`);
+        await updateGlobals(context);
+    });
 
-    // On a check run event perform some checks
+    // On a check run event perform some actions.
     app.on('check_run', async context => {
-        updateToken()
+        // If it's a travis PR build, create/update a Visual Difference check run.
+        if (context.payload.check_run.name == TRAVIS_PR_BUILD) {
+            const hasVDTest = await hasVisualDiffTest(context);
 
-        // If it's a travis PR build, check the progress and make a VD check run.
-        if (context.payload.check_run.name == travis_pr_build) {
-            hasVisualDiffTest(context, context.payload.check_run.id, createCheckRunProgress)
+            if (hasVDTest && context.payload.check_run.status == QUEUED) {
+                // If this travis PR has a VD test and it's queued.
+                // Create our VD check run.
+                await createInProgressCR(context);
+            } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == SUCCESS) {
+                // If this travis PR has a VD test and it's finished.
+                // Finish our VD check run.
+                await markCRComplete(context);
+            } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == FAILURE && await confirmVDFailure(context)) {
+                // If this travis PR has a VD test and it has failed.
+                // Mark our VD check run as failed.
+                await markCRFailed(context);
+            } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == CANCELLED) {
+                // If this travis PR has a VD test and it has failed.
+                // Mark our VD check run as failed.
+                await markCRCancelled(context);
+            }
         }
+    });
 
-        // If the travis PR build finished and failed, check if VD tests failed.
-        if (context.payload.check_run.conclusion == failure && context.payload.check_run.name == travis_pr_build) {
-            getCheckRunSummaryAndCommentOnFailure(context, context.payload.check_run.id)
-        }
-
-        // If the travis PR build finished and finished, mark VD tests as completed.
-        if (context.payload.check_run.conclusion == success && context.payload.check_run.name == travis_pr_build) {
-            hasVisualDiffTest(context, context.payload.check_run.id, createCheckRunComplete)
-        }
-    })
-
-    // On a requested action button press from the user
+    // When the user requests an action on a failed check run.
     app.on('check_run.requested_action', async context => {
-        updateToken()
-
+        let issueNum = JSON.parse(context.payload.requested_action.identifier).n;
         // Are we regenerating the goldens from the current branch?
-        if (context.payload.requested_action.identifier.includes(regenCommand)) {
-            getBranchNameAndRegenGoldens(context, JSON.parse(context.payload.requested_action.identifier).n)
+        if (context.payload.requested_action.identifier.includes(REGEN_CMD)) {
+            const branch = await getBranchFromPR(context, issueNum);
+            await regenGoldens(context, issueNum, branch);
         }
 
         // Are we regenerating the goldens from the master branch?
-        if (context.payload.requested_action.identifier.includes(masterCommand)) {
-            regenGoldens(context, JSON.parse(context.payload.requested_action.identifier).n, "master")
+        if (context.payload.requested_action.identifier.includes(MASTER_CMD)) {
+            await regenGoldens(context, issueNum, DEFAULT_BRANCH);
         }
-    })
+    });
 }
 
 // Timer function
-const timer = ms => new Promise( res => setTimeout(res, ms));
+const timer = ms => new Promise(res => setTimeout(res, ms));
+
+// Update our global variables
+async function updateGlobals(context) {
+    installationID = context.payload.installation.id;
+    repoPath = context.payload.repository.url.split(GITHUB_API_BASE)[1];
+    repoPathTravis = repoPath.replace('/repos', '/repo');
+    var regex = /\/(?=[^\/]*$)/g;
+    repoPathTravis = repoPathTravis.replace(regex, '%2F');
+}
 
 // Does this check run have a visual difference test?
-function hasVisualDiffTest(context, checkRunID, callback) {
-    // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/check-runs/' + checkRunID,
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json'
+async function hasVisualDiffTest(context) {
+    const params = context.issue({
+        check_run_id: context.payload.check_run.id
+    });
+
+    const check_run_info = await context.github.checks.get(params);
+    return check_run_info.data.output.text.includes(VD_TEST_MSG);
+}
+
+// Did the visual difference tests fail for this check run?
+async function confirmVDFailure(context) {
+    const params = context.issue({
+        check_run_id: context.payload.check_run.id
+    });
+
+    const check_run_info = await context.github.checks.get(params);
+    return String(check_run_info.data.output.text).includes(VD_TEST_FAILURE);
+}
+
+// Creates an in-progress VD check run.
+async function createInProgressCR(context) {
+    const params = context.issue({
+        name: CHECK_RUN_NAME,
+        head_sha: context.payload.check_run.head_sha,
+        status: IN_PROG,
+        started_at: context.payload.check_run.started_at,
+        output: {
+            title: CHECK_RUN_NAME,
+            summary: 'Visual difference tests are in progress.'
         },
-        timeout: 2500
-    }
+        details_url: context.payload.check_run.details_url
+    });
 
-    // Get the summary
-    https.get(getOptions, (res) => {
-        let data = ''
+    console.log(`${INFO_PREFIX}Visual difference tests are in progress.`);
 
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            // Is there a visual difference test?
-            checkIfHasVD(context, String(data), callback)
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
-}
-// Is there a visual difference test?
-function checkIfHasVD(context, message, callback) {
-    if (message.includes(VD_TEST)) {
-        callback(context)
-    }
+    return context.github.checks.create(params);
 }
 
-// Get the Check Run Summary and Comment on a Failure
-function getCheckRunSummaryAndCommentOnFailure(context, checkRunID) {
-    // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/check-runs/' + checkRunID,
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json'
+// Creates a completed VD check run.
+async function markCRComplete(context) {
+    const params = context.issue({
+        name: CHECK_RUN_NAME,
+        head_sha: context.payload.check_run.head_sha,
+        status: COMPLETED,
+        conclusion: SUCCESS,
+        started_at: context.payload.check_run.started_at,
+        completed_at: context.payload.check_run.completed_at,
+        output: {
+            title: CHECK_RUN_NAME,
+            summary: 'Visual difference tests passed!'
         },
-        timeout: 2500
-    }
+        details_url: context.payload.check_run.details_url
+    });
 
-    // Get the summary
-    https.get(getOptions, (res) => {
-        let data = ''
+    console.log(`${INFO_PREFIX}Visual difference tests passed.`);
 
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            // Check if the build failed and comment
-            checkIfVDBuildFailedAndComment(context, String(data))
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
+    return context.github.checks.create(params);
 }
-// Did the visual difference test fail? Leave a comment if so.
-function checkIfVDBuildFailedAndComment(context, message) {
-    if (message.includes(VD_TEST_FAILURE)) {
-        commentFailedVD(context)
-    }
+
+// Creates a completed VD check run.
+async function markCRCancelled(context) {
+    const params = context.issue({
+        name: CHECK_RUN_NAME,
+        head_sha: context.payload.check_run.head_sha,
+        status: COMPLETED,
+        conclusion: CANCELLED,
+        started_at: context.payload.check_run.started_at,
+        completed_at: context.payload.check_run.completed_at,
+        output: {
+            title: CHECK_RUN_NAME,
+            summary: 'Visual difference tests were cancelled.'
+        },
+        details_url: context.payload.check_run.details_url
+    });
+
+    console.log(`${INFO_PREFIX}Visual difference tests were cancelled.`);
+
+    return context.github.checks.create(params);
 }
-// Comment on the PR letting the dev know that the VD tests failed.
-function commentFailedVD(context) {
-    // Extract the number, repo and repo owner from the check run.
-    let issueNumber = 0
-    let repoName = ''
-    let repoOwner = ''
-    let url = context.payload.check_run.details_url
-    let extID = context.payload.check_run.external_id
+
+// Creates a failed VD check run.
+async function markCRFailed(context) {
+    await makeCommentFailure(context);
+
+    const issueNum = await getIssueNumFromCR(context);
+    const extID = context.payload.check_run.external_id;
+
+    map.issueNum = extID;
+
+    const params = context.issue({
+        name: CHECK_RUN_NAME,
+        head_sha: context.payload.check_run.head_sha,
+        status: COMPLETED,
+        conclusion: FAILURE,
+        started_at: context.payload.check_run.started_at,
+        completed_at: context.payload.check_run.completed_at,
+        actions: [{
+            label: 'Regenerate Goldens',
+            description: 'Regenereate the Golden images.',
+            identifier: JSON.stringify({
+                c: REGEN_CMD,
+                n: issueNum
+            })
+        }, {
+            label: 'Reset Goldens',
+            description: 'Reset Goldens to master.',
+            identifier: JSON.stringify({
+                c: MASTER_CMD,
+                n: issueNum
+            })
+        }],
+        output: {
+            title: CHECK_RUN_NAME,
+            summary: 'Visual difference tests failed.'
+        },
+        details_url: context.payload.check_run.details_url
+    });
+
+    console.log(`${INFO_PREFIX}Visual difference tests failed.`);
+
+    return context.github.checks.create(params);
+}
+
+// Leaves a comment on a failed PR.
+async function makeCommentFailure(context) {
+    // Extract the URL and issueNum from the CR.
+    const URL = context.payload.check_run.details_url;
+    const issueNum = await getIssueNumFromCR(context);
+
+    // Post a comment letting the dev know their build failed.
+    const params = context.issue({
+        body: `Hey there! It looks like your "${TRAVIS_PR_BUILD}" \
+               build failed, due to the visual difference test failing. \
+               Check out the details of the Travis build [here](${URL}). \
+               To regenerate the goldens please see the "Details" link on the "Visual Difference Tests" check.`,
+        number: issueNum
+    });
+
+    console.log(`${INFO_PREFIX}Leaving a comment on the PR due to a failed visual difference test.`);
+
+    // Post a comment on the PR
+    return context.github.issues.createComment(params);
+}
+
+// Gets the issue number associated with a CR.
+async function getIssueNumFromCR(context) {
+    let issueNum = 0;
 
     for (let element of context.payload.check_run.pull_requests) {
         if (element.hasOwnProperty('number')) {
-            issueNumber = element.number
-            repoName = element.base.repo.name
+            issueNum = element.number;
             break;
         }
     }
-    repoOwner = context.payload.organization.login
 
-    // Post a comment letting the dev know their build failed.
-    let params = ({
-        body: 'Hey there! It looks like your "' + travis_pr_build + '" \
-               build failed, due to the visual difference test failing. \
-               Check out the details of the Travis build [here](' + url + '). \
-               To regenerate the goldens please click the "Details" link on the "Visual Difference Tests" check.',
-        number: issueNumber,
-        owner: repoOwner,
-        repo: repoName
-    })
-
-    // Mark the check run as failing
-    createCheckRunFail(context, issueNumber, extID);
-
-    // Post a comment on the PR
-    return context.github.issues.createComment(params)
+    return issueNum;
 }
 
-// Create an in-progress check-run
-function createCheckRunProgress(context) {
-    console.log("Waiting for 5 seconds...")
-    timer(5000).then(_=>updateToken());
-
-    // Parameters for the API call
-    const https = require('https')
-    const data = JSON.stringify({
-        'name': CHECK_RUN_NAME,
-        'head_sha': context.payload.check_run.head_sha,
-        'status': 'in_progress',
-        'started_at': context.payload.check_run.started_at,
-        'output': {
-            'title': CHECK_RUN_NAME,
-            'summary': 'Visual difference tests are in progress.'
-        },
-        'details_url': context.payload.check_run.details_url
-    })
-
-    const postOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/check-runs',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length,
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json',
-            'Authorization': 'Token ' + latestToken
-        },
-        timeout: 2500
-    }
-
-    // Send the request
-    const req = https.request(postOptions, (res) => {
-
-        res.on('data', (d) => {
-            if (res.statusCode == 200 || res.statusCode == 201) {
-                console.log("Visual difference checks in-progress.")
-            }
-        })
-    })
-    req.on('error', (error) => {
-        console.error(error)
-    })
-    req.write(data)
-    req.end()
-}
-// Create a failed check run
-function createCheckRunFail(context, issueNum, extID) {
-    updateToken()
-    // Parameters for the API call
-    const https = require('https')
-    const data = JSON.stringify({
-        'name': CHECK_RUN_NAME,
-        'head_sha': context.payload.check_run.head_sha,
-        'status': 'completed',
-        'conclusion': failure,
-        'started_at': context.payload.check_run.started_at,
-        'completed_at': context.payload.check_run.completed_at,
-        'actions': [{
-            "label": "Regenerate Goldens",
-            "description": "Regenereate the Golden images.",
-            "identifier": JSON.stringify({
-                "c": regenCommand,
-                "n": issueNum
-            })
-        }, {
-            "label": "Reset Goldens",
-            "description": "Reset goldens to master.",
-            "identifier": JSON.stringify({
-                "c": masterCommand,
-                "n": issueNum
-            })
-        }],
-        'output': {
-            'title': CHECK_RUN_NAME,
-            'summary': 'Visual difference tests failed.'
-        },
-        'details_url': context.payload.check_run.details_url
-    })
-
-    // Store the build ID
-    dictionary.issueNum = extID;
-
-    const postOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/check-runs',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length,
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json',
-            'Authorization': 'Token ' + latestToken
-        },
-        timeout: 2500
-    }
-
-    // Send the request
-    const req = https.request(postOptions, (res) => {
-
-        res.on('data', (d) => {
-            if (res.statusCode == 200 || res.statusCode == 201) {
-                console.log("Visual difference checks failed.")
-            }
-        })
-    })
-    req.on('error', (error) => {
-        console.error(error)
-    })
-    req.write(data)
-    req.end()
-}
-// Create a completed check run
-function createCheckRunComplete(context) {
-    updateToken()
-    // Parameters for the API call
-    const https = require('https')
-    const data = JSON.stringify({
-        'name': CHECK_RUN_NAME,
-        'head_sha': context.payload.check_run.head_sha,
-        'status': 'completed',
-        'conclusion': success,
-        'started_at': context.payload.check_run.started_at,
-        'completed_at': context.payload.check_run.completed_at,
-        'output': {
-            'title': CHECK_RUN_NAME,
-            'summary': 'Visual difference tests passed!'
-        },
-        'details_url': context.payload.check_run.details_url
-    })
-
-    const postOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/check-runs',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length,
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json',
-            'Authorization': 'Token ' + latestToken
-        },
-        timeout: 2500
-    }
-
-    // Send the request
-    const req = https.request(postOptions, (res) => {
-        res.on('data', (d) => {
-            if (res.statusCode == 200 || res.statusCode == 201) {
-                console.log("Visual difference checks passed.")
-            }
-        })
-    })
-    req.on('error', (error) => {
-        console.error(error)
-    })
-    req.write(data)
-    req.end()
-}
-
-// Gets the branch name from the current PR and regenerates the goldens
-function getBranchNameAndRegenGoldens(context, issueNum) {
-    let branchName = ''
-
-    // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: repoPath + '/pulls/' + issueNum,
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': GH_APP_NAME
-        },
-        timeout: 2500
-    }
-
-    // Get the branch name first
-    https.get(getOptions, (res) => {
-        let data = ''
-        let prInfo = {}
-
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            prInfo = JSON.parse(data)
-            branchName = prInfo.head.ref
-            regenGoldens(context, issueNum, branchName)
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
-}
-
-// Regenerates the goldens
-function regenGoldens(context, issueNum, branchName) {
-    // Format the request
-    const https = require('https')
-    const data = JSON.stringify({
-        "request": {
-            "config": {
-                "merge_mode": "merge",
-                "script": [
-                    "npm run test:diff:golden"
-                ]
-            },
-            "branch": branchName,
-            "message": "Regenerating the goldens from the '" + branchName + "' branch."
-        }
-    })
-    const postOptions = {
-        hostname: 'api.travis-ci.com',
-        port: 443,
-        path: repoPathTravis + '/requests',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length,
-            'Accept': 'application/json',
-            'Travis-API-Version': '3',
-            'Authorization': 'token ' + process.env.TRAVIS_AUTH
-        },
-        timeout: 2500
-    }
-
-    // Send the request (ask travis to regenerate the goldens)
-    const req = https.request(postOptions, (res) => {
-        let data = ''
-        let resp = ''
-        let reqId = ''
-
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-
-        res.on('end', () => {
-            resp = JSON.parse(data)
-            reqId = resp.request.id
-
-            console.log("Waiting for 5 seconds...")
-            timer(5000).then(_=>getStatusRegen(context, issueNum, branchName, reqId));
-        })
-    })
-    req.on('error', (error) => {
-        console.error(error)
-    })
-    req.write(data)
-    req.end()
-}
-
-function getStatusRegen(context, issueNum, branchName, reqId) {
-    // Get the build details from travis
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.travis-ci.com',
-        port: 443,
-        path: repoPathTravis + '/request/' + reqId,
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Travis-API-Version': '3',
-            'Authorization': 'token ' + process.env.TRAVIS_AUTH
-        },
-        timeout: 2500
-    }
-
-    // Get the build url first
-    https.get(getOptions, (res) => {
-        let data = ''
-        let resp = ''
-        let buildID = ''
-
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            resp = JSON.parse(data)
-
-            for (let element of resp.builds) {
-                buildID = element.id
-                break;
-            }
-
-            let buildUrl = TRAVIS_PREFIX + repoPath.split("/repos/")[1] + TRAVIS_MIDDLE + buildID
-
-            // Let the dev know what is going on.
-            let params = context.issue({
-                body: 'The goldens will be regenerated off of the "' + branchName + '" branch shortly. \
-                        You can check the status of the build [here](' + buildUrl + '). \
-                        Once the build is done, the visual difference tests will be re-run automatically.',
-                number: issueNum
-            })
-            
-            if(dictionary.hasOwnProperty(issueNum)) {
-                reRunBuild(dictionary.issueNum)
-            } else {
-                params = context.issue({
-                    body: 'The goldens will be regenerated off of the "' + branchName + '" branch shortly. \
-                            You can check the status of the build [here](' + buildUrl + '). \
-                            Once the build is done, you will need to re-run the visual difference tests manually using the GitHub UI. \
-                            Normally, we can do this for you, but we were unable to perform the request this time.',
-                    number: issueNum
-                })
-            }
-
-            // Post a comment on the PR
-            return context.github.issues.createComment(params)
-
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
-}
-
-function reRunBuild(buildID) {
-    // Parameters for the API call
-    const https = require('https')
-    const postOptions = {
-        hostname: 'api.travis-ci.com',
-        port: 443,
-        path: '/build/'+ buildID + '/restart',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Travis-API-Version': '3',
-            'Authorization': 'token ' + process.env.TRAVIS_AUTH
-        },
-        timeout: 2500
-    }
-
-    // Send the request
-    https.get(postOptions, (res) => {
-        res.on('data', (d) => {
-            if (res.statusCode == 200 || res.statusCode == 201) {
-                console.log("Requested re-run of build.")
-            }
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
-}
-
-// Authentication functions
-function updateToken() {
-    // Get the JWT
-    var jwt = require('jsonwebtoken');
-
-    let key = process.env.PRIVATE_KEY
-    let buffer = new Buffer.from(key, 'base64')
-    let decoded = buffer.toString('ascii')
-
-    var token = jwt.sign({
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + (10 * 60),
-        iss: 41247
-    }, decoded, {
-        algorithm: 'RS256'
+// Gets the branch name of the pull associated with a check run event
+async function getBranchFromPR(context, issueNum) {
+    const params = context.issue({
+        pull_number: issueNum
     });
 
-    authenticateJWT(token);
+    const pr_info = await context.github.pulls.get(params);
+    return pr_info.head.ref;
 }
-function authenticateJWT(jwt) {
-    // Authorize the JWT
-    // Parameters for the API call
-    const https = require('https')
-    const getOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: '/app',
-        method: 'GET',
-        headers: {
-            'Authorization': 'Bearer ' + jwt,
-            'User-Agent': GH_APP_NAME,
-            'Accept': 'application/vnd.github.antiope-preview+json'
-        },
-        timeout: 2500
+
+// Regenerates the Goldens, given the branch name
+async function regenGoldens(context, issueNum, branchName) {
+    // Custom build data to send to Travis
+    const data = JSON.stringify({
+        request: {
+            config: {
+                merge_mode: 'merge',
+                script: [
+                    REGEN_NPM_CMD
+                ]
+            },
+            branch: branchName,
+            message: `[${issueNum}] Regenerating the Goldens from the "${branchName}" branch.`
+        }
+    });
+
+    // Ask Travis to regenerate the Goldens
+    try {
+        const response = await got.post(
+            `${repoPathTravis}/requests`, {
+            baseUrl: TRAVIS_API_BASE,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Travis-API-Version': '3',
+                'Authorization': `token ${process.env.TRAVIS_AUTH}`
+            },
+            body: data,
+            timeout: 5000
+        });
+
+        if (response.statusCode == 202) {
+            console.log(`${INFO_PREFIX}Requsted a regenration of the Goldens from the ${branchName}.`);
+
+            const data = await JSON.parse(response.body);
+            const reqID = data.request.id;
+
+            console.log(`${INFO_PREFIX}Waiting for 8 seconds...`);
+            await timer(8000).then(_ => makeCommentRegen(context, issueNum, branchName, reqID));
+        }
+    } catch (error) {
+        console.log(`${ERROR_PREFIX}${error}`);
     }
-    // Send the request
-    const req = https.request(getOptions, (res) => {
-        let data = ''
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            getAppToken(jwt)
-        })
-    })
-    req.on('error', (error) => {
-        console.error(error)
-    })
-    req.end()
 }
-function getAppToken(jwt) {
-    const https = require('https')
-    // Get the app token
-    const postOptions = {
-        hostname: 'api.github.com',
-        port: 443,
-        path: '/app/installations/' + installationID + '/access_tokens',
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + jwt,
-            'Accept': 'application/vnd.github.machine-man-preview+json',
-            'User-Agent': GH_APP_NAME,
-            'Content-Type': 'application/json'
-        },
-        timeout: 2500
-    }
-    https.get(postOptions, (res) => {
-        let data = ''
-        let token_info = {}
 
-        res.on('data', (chunk) => {
-            data += chunk
-        })
-        res.on('end', () => {
-            token_info = JSON.parse(data)
-            token = token_info.token
-            latestToken = token
+// Leave a comment on the PR about the regeneration
+async function makeCommentRegen(context, issueNum, branchName, reqID) {
+    try {
+        const response = await got(
+            `${repoPathTravis}/request/${reqID}`, {
+            baseUrl: TRAVIS_API_BASE,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Travis-API-Version': '3',
+                'Authorization': `token ${process.env.TRAVIS_AUTH}`
+            },
+            timeout: 5000
+        });
 
-            if (res.statusCode == 200 || res.statusCode == 201) {
-                console.log("Success: Authenticated with GitHub successfully.")
+        if (response.statusCode == 200 || response.statusCode == 201) {
+            let buildID = 0;
+
+            const data = await JSON.parse(response.body);
+            for (let element of data.builds) {
+                buildID = element.id;
+                break;
             }
-        })
-    }).on("error", (err) => {
-        console.log("Error: " + err.message)
-    })
+            const buildURL = `${TRAVIS_HOME_BASE}${repoPath.split('/repos/')[1]}${TRAVIS_BUILDS_PATH}${buildID}`;
+
+            console.log(`${INFO_PREFIX}Leaving a comment on the PR to notify the dev of the regeneration.`);
+
+            // Let the dev know what is going on.
+            const params = context.issue({
+                body: `The goldens will be regenerated off of the "${branchName}" branch shortly. \
+                        You can check the status of the build [here](${buildURL}). \
+                        Once the build is done, the visual difference tests will be re-run automatically.`,
+                number: issueNum
+            });
+
+            await reRunBuild(map.issueNum);
+
+            // Post a comment on the PR
+            return context.github.issues.createComment(params);
+        }
+    } catch (error) {
+        console.log(`${ERROR_PREFIX}${error}`);
+    }
+}
+
+// Re-run the Travis PR Build
+async function reRunBuild(buildID) {
+    try {
+        const response = await got.post(
+            `/build/${buildID}/restart`, {
+            baseUrl: TRAVIS_API_BASE,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Travis-API-Version': '3',
+                'Authorization': `token ${process.env.TRAVIS_AUTH}`
+            },
+            timeout: 5000
+        });
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+            console.log(`${INFO_PREFIX}Requsted a re-run of the Travis PR build.`);
+        }
+    } catch (error) {
+        console.log(`${ERROR_PREFIX}${error}`);
+    }
 }
