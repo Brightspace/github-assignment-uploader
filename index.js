@@ -1,17 +1,23 @@
 // Constants
 const CHECK_RUN_NAME = 'Visual Difference Tests';
 const VD_TEST_MSG = 'Stage 2: Visual-difference-tests';
-const VD_TEST_FAILURE = 'Stage 2: Visual-difference-tests\\nThis stage **failed**';
+const VD_TEST_FAILURE = '### Stage 2: Visual-difference-tests\nThis stage **failed**';
 const GITHUB_API_BASE = 'https://api.github.com';
 const TRAVIS_API_BASE = 'https://api.travis-ci.com'
 const TRAVIS_HOME_BASE = 'https://travis-ci.com/';
 const TRAVIS_BUILDS_PATH = '/builds/';
 const TRAVIS_PR_BUILD = 'Travis CI - Pull Request';
-const FAILURE = 'failure';
+
+// Statuses
 const QUEUED = 'queued';
-const SUCCESS = 'success';
-const IN_PROG = 'in_progress';
 const COMPLETED = 'completed';
+const IN_PROG = 'in_progress';
+
+// Conclusions
+const FAILURE = 'failure';
+const SUCCESS = 'success';
+const CANCELLED = 'cancelled';
+
 const REGEN_CMD = 'r';
 const MASTER_CMD = 'm';
 const REGEN_NPM_CMD = 'npm run test:diff:golden';
@@ -48,14 +54,18 @@ module.exports = app => {
                 // If this travis PR has a VD test and it's queued.
                 // Create our VD check run.
                 createInProgressCR(context);
-            } else if (hasVDTest && context.payload.check_run.status == SUCCESS) {
+            } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == SUCCESS) {
                 // If this travis PR has a VD test and it's finished.
                 // Finish our VD check run.
                 markCRComplete(context);
-            } else if (hasVDTest && context.payload.check_run.status == FAILURE && await confirmVDFailure(context)) {
+            } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == FAILURE && await confirmVDFailure(context)) {
                 // If this travis PR has a VD test and it has failed.
                 // Mark our VD check run as failed.
                 markCRFailed(context);
+            } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == CANCELLED) {
+                // If this travis PR has a VD test and it has failed.
+                // Mark our VD check run as failed.
+                markCRCancelled(context);
             }
         }
     });
@@ -75,6 +85,9 @@ module.exports = app => {
         }
     });
 }
+
+// Timer function
+const timer = ms => new Promise(res => setTimeout(res, ms));
 
 // Update our global variables
 async function updateGlobals(context) {
@@ -102,7 +115,7 @@ async function confirmVDFailure(context) {
     });
 
     const check_run_info = await context.github.checks.get(params);
-    return check_run_info.data.output.text.includes(VD_TEST_FAILURE);
+    return String(check_run_info.data.output.text).includes(VD_TEST_FAILURE);
 }
 
 // Creates an in-progress VD check run.
@@ -141,6 +154,27 @@ async function markCRComplete(context) {
     })
 
     console.log(`${INFO_PREFIX}Visual difference tests passed.`);
+
+    return context.github.checks.create(params);
+}
+
+// Creates a completed VD check run.
+async function markCRCancelled(context) {
+    const params = context.issue({
+        name: CHECK_RUN_NAME,
+        head_sha: context.payload.check_run.head_sha,
+        status: COMPLETED,
+        conclusion: CANCELLED,
+        started_at: context.payload.check_run.started_at,
+        completed_at: context.payload.check_run.completed_at,
+        output: {
+            title: CHECK_RUN_NAME,
+            summary: 'Visual difference tests were cancelled.'
+        },
+        details_url: context.payload.check_run.details_url
+    })
+
+    console.log(`${INFO_PREFIX}Visual difference tests were cancelled.`);
 
     return context.github.checks.create(params);
 }
@@ -251,7 +285,7 @@ async function regenGoldens(context, issueNum, branchName) {
 
     // Ask Travis to regenerate the Goldens
     try {
-        const response = await post(
+        const response = await got.post(
             `${repoPathTravis}/requests`, {
             baseUrl: TRAVIS_API_BASE,
             headers: {
@@ -264,13 +298,17 @@ async function regenGoldens(context, issueNum, branchName) {
             timeout: 5000
         });
 
-        if (response.statusCode == 200 || response.statusCode == 201) {
-            console.log(`Requsted a regenration of the Goldens from the ${branchName}.`);
-            const reqID = response.body.request.id;
-            await makeCommentRegen(context, issueNum, branchName, reqID);
+        if (response.statusCode == 202) {
+            console.log(`${INFO_PREFIX}Requsted a regenration of the Goldens from the ${branchName}.`);
+
+            const data = await JSON.parse(response.body);
+            const reqID = data.request.id;
+
+            console.log(`${INFO_PREFIX}Waiting for 8 seconds...`)
+            await timer(8000).then(_ => makeCommentRegen(context, issueNum, branchName, reqID));
         }
     } catch (error) {
-        console.log(`${ERROR_PREFIX}${error.response.body}`);
+        console.log(`${ERROR_PREFIX}${error}`);
     }
 }
 
@@ -291,7 +329,9 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
 
         if (response.statusCode == 200 || response.statusCode == 201) {
             let buildID = 0;
-            for (let element of response.body.builds) {
+
+            const data = await JSON.parse(response.body);
+            for (let element of data.builds) {
                 buildID = element.id;
                 break;
             }
@@ -313,14 +353,14 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
             return context.github.issues.createComment(params)
         }
     } catch (error) {
-        console.log(`${ERROR_PREFIX}${error.response.body}`);
+        console.log(`${ERROR_PREFIX}${error}`);
     }
 }
 
 // Re-run the Travis PR Build
 async function reRunBuild(buildID) {
     try {
-        const response = await post(
+        const response = await got.post(
             `/build/${buildID}/restart`, {
             baseUrl: TRAVIS_API_BASE,
             headers: {
@@ -336,6 +376,6 @@ async function reRunBuild(buildID) {
             console.log(`${INFO_PREFIX}Requsted a re-run of the Travis PR build.`);
         }
     } catch (error) {
-        console.log(`${ERROR_PREFIX}${error.response.body}`);
+        console.log(`${ERROR_PREFIX}${error}`);
     }
 }
