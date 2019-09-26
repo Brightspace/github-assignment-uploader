@@ -139,7 +139,7 @@ async function confirmVDCancel(context) {
     return String(check_run_info.data.output.text).includes(VD_TEST_CANCEL);
 }
 
-// Did the visual difference tests pas this check run?
+// Did the visual difference tests pass this check run?
 async function confirmVDPass(context) {
     const params = context.issue({
         check_run_id: context.payload.check_run.id
