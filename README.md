@@ -30,10 +30,10 @@ npm install -g serverless
 # To deploy to AWS (Requires your credentials to be set)
 serverless deploy
 
-# Remove the stack from aws
+# Remove the stack from AWS
 serverless remove
 
-# Spy on the CloudWatch logs as they come in
+# Spy on the CloudWatch logs as they come in (for debugging purposes)
 serverless logs -f probot -t
 ```
 
