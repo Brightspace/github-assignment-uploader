@@ -82,7 +82,7 @@ module.exports = app => {
     // When the user requests an action on a failed check run.
     app.on('check_run.requested_action', async context => {
         // Are we regenerating the goldens from the current branch?
-        if (context.payload.requested_action.identifier.includes(REGEN_CMD)) {
+        if (context.payload.requested_action.identifier == REGEN_CMD) {
             // First we need to get the issue number for this PR
             let issueNum = 0;
             
