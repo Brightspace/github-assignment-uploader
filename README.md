@@ -11,7 +11,7 @@ npm install
 # Run the bot
 npm start
 
-# Run the bot in development mode
+# Run the bot in development mode (will automatically restart on code changes)
 npm run dev
 ```
 
