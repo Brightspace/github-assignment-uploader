@@ -129,6 +129,26 @@ async function confirmVDFailure(context) {
     return String(check_run_info.data.output.text).includes(VD_TEST_FAILURE);
 }
 
+// Did the visual difference tests get cancelled this check run?
+async function confirmVDCancel(context) {
+    const params = context.issue({
+        check_run_id: context.payload.check_run.id
+    });
+
+    const check_run_info = await context.github.checks.get(params);
+    return String(check_run_info.data.output.text).includes(VD_TEST_CANCEL);
+}
+
+// Did the visual difference tests pas this check run?
+async function confirmVDPass(context) {
+    const params = context.issue({
+        check_run_id: context.payload.check_run.id
+    });
+
+    const check_run_info = await context.github.checks.get(params);
+    return String(check_run_info.data.output.text).includes(VD_TEST_PASS);
+}
+
 // Creates an in-progress VD check run.
 async function createInProgressCR(context) {
     const params = context.issue({
