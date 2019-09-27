@@ -23,7 +23,14 @@ const CANCELLED = 'cancelled';
 
 const REGEN_CMD = 'r';
 const MASTER_CMD = 'm';
+
+/*
+ * ---------------------------------------------------------------------
+ * -----------The command that regenerates the Golden images------------
+ * ---------------------------------------------------------------------
+ */
 const REGEN_NPM_CMD = 'npm run test:diff:golden';
+
 const INFO_PREFIX = '[INFO] ';
 const ERROR_PREFIX = '[ERROR] ';
 const DEFAULT_BRANCH = 'master';
@@ -64,8 +71,8 @@ module.exports = app => {
                 // Mark our VD check run as failed.
                 await markCRFailed(context);
             } else if (hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == CANCELLED) {
-                // If this travis PR has a VD test and it has failed.
-                // Mark our VD check run as failed.
+                // If this travis PR has a VD test and it was cancelled.
+                // Mark our VD check run as cancelled.
                 await markCRCancelled(context);
             } else if(hasVDTest && context.payload.check_run.status == COMPLETED && context.payload.check_run.conclusion == FAILURE && await confirmVDCancel(context)) {
                 // If this travis PR has a VD test and the build failed and the VD was cancelled.
@@ -81,24 +88,25 @@ module.exports = app => {
 
     // When the user requests an action on a failed check run.
     app.on('check_run.requested_action', async context => {
-        // Are we regenerating the goldens from the current branch?
+        // Are we regenerating the Goldens from the current branch?
         if (context.payload.requested_action.identifier == REGEN_CMD) {
             // First we need to get the issue number for this PR
-            let issueNum = 0;
-            
-            for (let element of context.payload.check_run.check_suite.pull_requests) {
-                issueNum = element.number;
-                break;
-            }
-
+            const issueNum = await getIssueNumFromCRAction(context);
+            // Then we need to get the branch name
             const branch = await getBranchFromPR(context, issueNum);
             await regenGoldens(context, branch);
         }
 
-        // Are we regenerating the goldens from the master branch?
+        // Are we regenerating the Goldens from the master branch?
         if (context.payload.requested_action.identifier == MASTER_CMD) {
             await regenGoldens(context, DEFAULT_BRANCH);
-        }
+        } check_run.rerequested
+    });
+
+    // If the user clicks the 'Re-run' button on a failed check-run.
+    app.on('check_run.rerequested', async context => {
+        const issueNum = await getIssueNumFromCRAction(context);
+        await reRunBuild(context, issueNum);
     });
 }
 
@@ -230,11 +238,11 @@ async function markCRFailed(context) {
         completed_at: context.payload.check_run.completed_at,
         actions: [{
             label: 'Regenerate Goldens',
-            description: 'Regenereate the Golden images.',
+            description: 'Regenerate the Goldens from this branch.',
             identifier: REGEN_CMD
         }, {
             label: 'Reset Goldens',
-            description: 'Reset Goldens to master.',
+            description: 'Reset Goldens to the master branch.',
             identifier: MASTER_CMD
         }],
         output: {
@@ -260,7 +268,7 @@ async function makeCommentFailure(context) {
         body: `Hey there! It looks like your "${TRAVIS_PR_BUILD}" \
                build failed, due to the visual difference test failing. \
                Check out the details of the Travis build [here](${URL}). \
-               To regenerate the goldens please see the "Details" link on the "Visual Difference Tests" check.`,
+               To regenerate the Goldens please see the details page".`,
         number: issueNum
     });
 
@@ -284,6 +292,18 @@ async function getIssueNumFromCR(context) {
     return issueNum;
 }
 
+// Gets the issue number associated with a CR Action
+async function getIssueNumFromCRAction(context) {
+    let issueNum = 0;
+            
+    for (let element of context.payload.check_run.check_suite.pull_requests) {
+        issueNum = element.number;
+        break;
+    }
+
+    return issueNum;
+}
+
 // Gets the branch name of the pull associated with a check run event
 async function getBranchFromPR(context, issueNum) {
     const params = context.issue({
@@ -297,13 +317,8 @@ async function getBranchFromPR(context, issueNum) {
 
 // Regenerates the Goldens, given the branch name
 async function regenGoldens(context, branchName) {
-    // First we need to get the issue number for this PR
-    let issueNum = 0;
-    
-    for (let element of context.payload.check_run.check_suite.pull_requests) {
-        issueNum = element.number;
-        break;
-    }
+    // First we need to get the issue number for this CR action
+    const issueNum = getIssueNumFromCRAction(context);
 
     // Custom build data to send to Travis
     const data = JSON.stringify({
@@ -315,7 +330,7 @@ async function regenGoldens(context, branchName) {
                 ]
             },
             branch: branchName,
-            message: `[#${issueNum}] Regenerating the Goldens from the "${branchName}" branch.`
+            message: `[#${issueNum}] Regenerating the Goldens from "${branchName}"`
         }
     });
 
@@ -335,7 +350,7 @@ async function regenGoldens(context, branchName) {
         });
 
         if (response.statusCode == 202) {
-            console.log(`${INFO_PREFIX}Requsted a regenration of the Goldens from the ${branchName}.`);
+            console.log(`${INFO_PREFIX}Requsted a regenration of the Goldens from the "${branchName}" branch.`);
 
             const data = await JSON.parse(response.body);
             const reqID = data.request.id;
@@ -350,6 +365,7 @@ async function regenGoldens(context, branchName) {
 
 // Leave a comment on the PR about the regeneration
 async function makeCommentRegen(context, issueNum, branchName, reqID) {
+    // Ask Travis to re-run the Visual Difference tests
     try {
         const response = await got(
             `${repoPathTravis}/request/${reqID}`, {
@@ -377,7 +393,7 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
 
             // Let the dev know what is going on.
             const params = context.issue({
-                body: `The goldens will be regenerated off of the "${branchName}" branch shortly. \
+                body: `The Goldens will be regenerated off of the "${branchName}" branch shortly. \
                         You can check the status of the build [here](${buildURL}). \
                         Once the build is done, the visual difference tests will be re-run automatically.`,
                 number: issueNum
