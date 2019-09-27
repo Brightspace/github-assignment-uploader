@@ -66,6 +66,7 @@ In order to have this bot watch the Visual Difference tests for a specific repo,
 
 1. Firstly, make sure that the application is installed on the desired repo.
 2. Modify your Travis CI config so that it has the following `jobs` section.
+
 ```yaml
 jobs:
   include:
@@ -75,11 +76,23 @@ jobs:
   - stage: visual-difference-tests
     script:
     - |
-      if [ $TRAVIS_PULL_REQUEST != false ] && [ $TRAVIS_SECURE_ENV_VARS == true ]; then
+      if [ [ $TRAVIS_SECURE_ENV_VARS == true ]; then
         echo "Pull request, running visual difference tests...";
         npm run test:diff || travis_terminate 1;
       fi
 ```
+
+With the appropriate Travis secure environment variables required by the [visual-diff package](https://github.com/BrightspaceUI/visual-diff#running-in-ci).
+
+```yaml
+env:
+  global:
+  # VISUAL_DIFF_S3_ID
+  - secure: TOKEN
+  # VISUAL_DIFF_S3_SECRET
+  - secure: TOKEN
+```
+
 3. The important thing to note above, is that the jobs have been split into multiple stages. The first stage is the regular code tests you want to run (with whatever name you would like it to be). The second stage is the important one (it must be the second stage) and the name must be `visual-difference-tests`. This is what the bot will use to check the status of your Visual Difference tests, additionally the Travis check's name must be `Travis CI - Pull Request`.
 
 ## Secrets Management
