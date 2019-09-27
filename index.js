@@ -265,10 +265,10 @@ async function makeCommentFailure(context) {
 
     // Post a comment letting the dev know their build failed.
     const params = context.issue({
-        body: `Hey there! It looks like your "${TRAVIS_PR_BUILD}" \
-               build failed, due to the visual difference test failing. \
+        body: `Hey there! It looks like your Pull Request \
+               build failed, due to the visual difference tests failing. \
                Check out the details of the Travis build [here](${URL}). \
-               To regenerate the Goldens please see the details page".`,
+               To regenerate the Goldens please see the details page for this check run.`,
         number: issueNum
     });
 
