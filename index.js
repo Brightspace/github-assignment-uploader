@@ -266,7 +266,7 @@ async function makeCommentFailure(context) {
     // Post a comment letting the dev know their build failed.
     const params = context.issue({
         body: `Hey there! It looks like your Pull Request \
-               build failed, due to the visual difference tests failing. \
+               build failed, due to the Visual Difference tests failing. \
                Check out the details of the Travis build [here](${URL}). \
                To regenerate the Goldens please see the details page for this check run.`,
         number: issueNum
@@ -318,7 +318,7 @@ async function getBranchFromPR(context, issueNum) {
 // Regenerates the Goldens, given the branch name
 async function regenGoldens(context, branchName) {
     // First we need to get the issue number for this CR action
-    const issueNum = getIssueNumFromCRAction(context);
+    const issueNum = await getIssueNumFromCRAction(context);
 
     // Custom build data to send to Travis
     const data = JSON.stringify({
