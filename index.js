@@ -10,6 +10,7 @@ const TRAVIS_API_BASE = 'https://api.travis-ci.com'
 const TRAVIS_HOME_BASE = 'https://travis-ci.com/';
 const TRAVIS_BUILDS_PATH = '/builds/';
 const TRAVIS_PR_BUILD = 'Travis CI - Pull Request';
+const TRAVIS_BR_BUILD = 'Travis CI - Branch';
 
 // Statuses
 const QUEUED = 'queued';
@@ -409,7 +410,7 @@ async function makeCommentRegen(context, issueNum, branchName, reqID) {
     }
 }
 
-// Re-run the Travis PR Build
+// Re-run the Travis Builds
 async function reRunBuild(context, issueNum) {
     // Get the SHA commit for this PR from the issue number
     const pr_params = context.issue({
@@ -425,15 +426,24 @@ async function reRunBuild(context, issueNum) {
     });
     const cr_info = await context.github.checks.listForRef(cr_params);
 
-    // Get the build ID
-    let buildID = 0;
+    // Get the build IDs
+    let buildIDPR = 0;
+    let buildIDBranch = 0;
     for (let element of cr_info.data.check_runs) {
         if(element.name == TRAVIS_PR_BUILD) {
-            buildID = element.external_id;
-            break;
+            buildIDPR = element.external_id;
+        }
+        if(element.name == TRAVIS_BR_BUILD) {
+            buildIDBranch = element.external_id;
         }
     }
-    
+
+    contactTravisReRun(buildIDPR);
+    contactTravisReRun(buildIDBranch);
+}
+
+// Re-run a specific Travis build
+async function contactTravisReRun(buildID) {
     // Now tell Travis to restart that build
     try {
         const response = await got.post(
@@ -449,7 +459,7 @@ async function reRunBuild(context, issueNum) {
         });
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-            console.log(`${INFO_PREFIX}Requsted a re-run of the Travis PR build.`);
+            console.log(`${INFO_PREFIX}Requsted a re-run of the Travis build.`);
         }
     } catch (error) {
         console.log(`${ERROR_PREFIX}${error}`);
