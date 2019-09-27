@@ -76,7 +76,7 @@ jobs:
   - stage: visual-difference-tests
     script:
     - |
-      if [ [ $TRAVIS_SECURE_ENV_VARS == true ]; then
+      if [ $TRAVIS_SECURE_ENV_VARS == true ]; then
         echo "Pull request, running visual difference tests...";
         npm run test:diff || travis_terminate 1;
       fi
