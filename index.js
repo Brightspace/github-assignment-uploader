@@ -100,7 +100,7 @@ module.exports = app => {
         // Are we regenerating the Goldens from the master branch?
         if (context.payload.requested_action.identifier == MASTER_CMD) {
             await regenGoldens(context, DEFAULT_BRANCH);
-        } check_run.rerequested
+        }
     });
 
     // If the user clicks the 'Re-run' button on a failed check-run.
