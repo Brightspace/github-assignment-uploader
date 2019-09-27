@@ -9,7 +9,7 @@
 - 4 - [Testing Locally](README.md/#testing-locally)
 - 5 - [Repository Setup](README.md/#repository-setup)
 - 6 - [Secrets Management](README.md/#secrets-management)
-- 7 - [License](README.md/#license)
+- 7 - [Screenshots](README.md/#screenshots)
 
 ## Setup
 
@@ -102,17 +102,5 @@ env:
 
 (Goal: make this more robust later with AWS secrets manager)
 
-## License
-
-Copyright 2019 D2L Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-See the [LICENSE](LICENSE) file for more details.
+## Screenshots
+![Screenshot of the Visual Difference GitHub Check](screenshot.png)
