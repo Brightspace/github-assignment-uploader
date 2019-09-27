@@ -355,8 +355,8 @@ async function regenGoldens(context, branchName) {
             const data = await JSON.parse(response.body);
             const reqID = data.request.id;
 
-            console.log(`${INFO_PREFIX}Waiting for 3 seconds...`);
-            await timer(3000).then(_ => makeCommentRegen(context, issueNum, branchName, reqID));
+            console.log(`${INFO_PREFIX}Waiting for 6 seconds...`);
+            await timer(6000).then(_ => makeCommentRegen(context, issueNum, branchName, reqID));
         }
     } catch (error) {
         console.log(`${ERROR_PREFIX}${error}`);
