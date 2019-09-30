@@ -65,6 +65,7 @@ describe('Visual-Difference Bot', () => {
     // Receive a webhook event
     await probot.receive({ name: 'check_run', payload: payloadCheckRunCreate })
   })
+
   // Check that we can process the receipt of a check_run.completed failure event.
   test('updating a check-run to failed when visual diff tests fail in Travis', async () => {
     // Test for POSTing a check_run
