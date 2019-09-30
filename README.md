@@ -12,6 +12,7 @@
 - 5 - [Repository Setup](README.md/#repository-setup)
 - 6 - [Secrets Management](README.md/#secrets-management)
 - 7 - [Screenshots](README.md/#screenshots)
+- 8 - [Tests](README.md/#tests)
 
 ## Setup
 
@@ -113,3 +114,6 @@ env:
 
 ## Screenshots
 ![Screenshot of the Visual Difference GitHub Check](screenshot.png)
+
+## Tests
+Tests for this project are written with [Jest](https://facebook.github.io/jest/) and [Nock](https://github.com/nock/nock).
