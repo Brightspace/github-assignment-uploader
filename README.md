@@ -1,5 +1,7 @@
 # visual-difference-bot
 
+[![Build Status](https://travis-ci.com/BrightspaceUI/visual-difference-bot.svg?branch=master)](https://travis-ci.com/BrightspaceUI/visual-difference-bot)
+
 > A GitHub App built with [Probot](https://github.com/probot/probot) that comments on PRs when Visual Difference checks fail.
 
 ## Table of Contents
