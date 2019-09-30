@@ -14,37 +14,45 @@
 ## Setup
 
 ```sh
-# Install dependencies
+# Install dependencies.
 npm install
 
-# Run the bot
+# Run the bot.
 npm start
 
-# Run the bot in development mode (will automatically restart on code changes)
+# Run the bot in development mode (will automatically restart on code changes).
 npm run dev
 ```
 
 ## Creating a GitHub app
 
-1. Run the bot in development mode.
+1. Run the application in development mode.
 2. Visit `http://localhost:3000` and then authenticate with GitHub.
-3. Be sure to update the Webhook URL in the application settings on GitHub.
+3. Be sure to update the **Webhook URL** in the **application settings on GitHub.**
 
 ## Serverless Deployment to AWS Lambda
 
+1. Ensure that you have Python 3.7.X installed on your system.
+2. Ensure that you have created a [.env file](README.md/#secrets-management).
+
 ```sh
-# Install serverless
+# Install serverless.
 npm install -g serverless
 
-# To deploy to AWS (Requires your credentials to be set)
-serverless deploy
+# Install the python3 deploy script dependencies.
+pip3 install -r requirements.txt
 
-# Remove the stack from AWS
-serverless remove
+# To deploy a new stack to AWS/update the existing one (Requires your AWS credentials to be set).
+python3 deploy.py
 
-# Spy on the CloudWatch logs as they come in (for debugging purposes)
+# Remove the existing stack from AWS.
+python3 deploy.py --remove-stack
+
+# Spy on the CloudWatch logs as they come in (for debugging purposes).
 serverless logs -f probot -t
 ```
+
+3. Be sure to update the **Webhook URL** in the **application settings on GitHub** to be the URL of the API Gateway for the Lambda function.
 
 ## Testing Locally
 You can test the bot locally on your own machine using [ngrok](https://ngrok.com/).
@@ -57,15 +65,16 @@ npm run dev
 ```sh
 ngrok http 3000
 ```
-3. Be sure to change the Webhook URL in the GitHub application settings to be your ngrok tunnel URL.
+3. Be sure to change the **Webhook URL** in the **GitHub application settings to be your ngrok tunnel URL**.
 4. Create a GitHub event to trigger the bot.
 
 ## Repository Setup
 
 In order to have this bot watch the Visual Difference tests for a specific repo, you need to have a custom Travis CI configuration.
 
-1. Firstly, make sure that the application is installed on the desired repo.
-2. Modify your Travis CI config so that it has the following `jobs` section.
+1. Ensure that your repository is setup with the [visual-diff package](https://github.com/BrightspaceUI/visual-diff).
+2. Make sure that the GitHub application is installed on the desired repo.
+3. Modify your Travis CI config so that it has the following `jobs` section.
 
 ```yaml
 jobs:
@@ -77,12 +86,12 @@ jobs:
     script:
     - |
       if [ $TRAVIS_SECURE_ENV_VARS == true ]; then
-        echo "Pull request, running visual difference tests...";
+        echo "Running visual difference tests...";
         npm run test:diff || travis_terminate 1;
       fi
 ```
 
-With the appropriate Travis secure environment variables required by the [visual-diff package](https://github.com/BrightspaceUI/visual-diff#running-in-ci).
+Make sure you have the appropriate Travis secure environment variables required by the [visual-diff package](https://github.com/BrightspaceUI/visual-diff#running-in-ci).
 
 ```yaml
 env:
@@ -93,14 +102,12 @@ env:
   - secure: TOKEN
 ```
 
-3. The important thing to note above, is that the jobs have been split into multiple stages. The first stage is the regular code tests you want to run (with whatever name you would like it to be). The second stage is the important one (it must be the second stage) and the name must be `visual-difference-tests`. This is what the bot will use to check the status of your Visual Difference tests, additionally the Travis check's name must be `Travis CI - Pull Request`.
+4. The important thing to note above, is that the jobs have been split into multiple stages. The first stage is the normal tests you want to run (with whatever name you would like it to be). The second stage is the important one (it must be the second stage) and the name must be named `visual-difference-tests`. This is what the bot will use to check the status of your Visual Difference tests, additionally the Travis check's name must be `Travis CI - Pull Request`.
 
 ## Secrets Management
 
-1. Manually set the secrets in your .env file (see [example](.env.example)) for local testing.
-2. Manually copy the secrets into your AWS Lambda's environment variables.
-
-(Goal: make this more robust later with AWS secrets manager)
+1. Create a .env file (see [example](.env.example)) with the appropriate values for your situation.
+2. The `deploy.py` script will use this file to create the same environment variables for the deployed Lambda.
 
 ## Screenshots
 ![Screenshot of the Visual Difference GitHub Check](screenshot.png)
