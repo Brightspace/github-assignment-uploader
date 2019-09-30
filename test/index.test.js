@@ -96,7 +96,7 @@ describe('Visual-Difference Bot', () => {
     await probot.receive({ name: 'check_run', payload: payloadCheckRunCancel })
   })
 
-  // Check that we can process the receipt of a check_run.completed cancelled event.
+  // Check that we can process the receipt of a check_run.completed success event.
   test('updating a check-run to success when visual diff tests pass in Travis', async () => {
     // Test for POSTing a check_run
     nock('https://api.github.com')
@@ -107,7 +107,7 @@ describe('Visual-Difference Bot', () => {
     await probot.receive({ name: 'check_run', payload: payloadCheckRunPass })
   })
 
-  // Check that we can process the receipt of a check_run.requested_action cancelled event.
+  // Check that we can process the receipt of a check_run.requested_action event.
   test('requesting action on the check run', async () => {
     // Test that we correctly call the Travis API
     nock('https://api.travis-ci.com')
