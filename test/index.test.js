@@ -14,6 +14,7 @@ const payloadCheckRunCreate = require('./fixtures/check_run.created')
 const payloadCheckRunFail = require('./fixtures/check_run.failed')
 const payloadCheckRunCancel = require('./fixtures/check_run.canceled')
 const payloadCheckRunPass = require('./fixtures/check_run.passed')
+const payloadCheckRunRequestAction = require('./fixtures/check_run.requested_action')
 const newCheckRunOutput = {
   name: 'Visual Difference Tests'
 }
@@ -103,5 +104,16 @@ describe('Visual-Difference Bot', () => {
 
     // Receive a webhook event
     await probot.receive({ name: 'check_run', payload: payloadCheckRunPass })
+  })
+
+  // Check that we can process the receipt of a check_run.requested_action cancelled event.
+  test('requesting action on the check run', async () => {
+    // Test that we correctly call the Travis API
+    nock('https://api.travis-ci.com')
+      .post('/repo/BrightspaceHypermediaComponents%2Factivities/requests')
+      .reply(200)
+
+    // Receive a webhook event
+    await probot.receive({ name: 'check_run.requested_action', payload: payloadCheckRunRequestAction })
   })
 })

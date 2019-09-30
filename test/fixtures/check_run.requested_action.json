@@ -1,5 +1,5 @@
 {
-  "action": "completed",
+  "action": "requested_action",
   "check_run": {
     "id": 42,
     "node_id": "",
@@ -13,13 +13,13 @@
     "started_at": "2019-09-27T19:29:40Z",
     "completed_at": "2020-09-27T19:29:40Z",
     "output": {
-      "title": "Build Failed",
-      "summary": "",
-      "text": "### Stage 2: Visual-difference-tests\nThis stage **failed**",
+      "title": "Visual Difference Tests",
+      "summary": "Visual difference tests failed.",
+      "text": null,
       "annotations_count": 0,
-      "annotations_url": "https://api.github.com/repos/BrightspaceHypermediaComponents/activities/check-runs/239259178/annotations"
+      "annotations_url": "https://api.github.com/repos/BrightspaceHypermediaComponents/activities/check-runs/239296039/annotations"
     },
-    "name": "Travis CI - Pull Request",
+    "name": "Visual Difference Tests",
     "check_suite": {
       "id": 42,
       "node_id": "",
@@ -93,5 +93,8 @@
   },
   "organization": {
     "login": "BrightspaceHypermediaComponents"
+  },
+  "requested_action": {
+    "identifier": "m"
   }
 }
