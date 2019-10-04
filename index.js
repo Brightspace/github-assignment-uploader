@@ -304,8 +304,7 @@ async function regenGoldens(context, branchName) {
             stage: 'regen-goldens',
             script: [
               REGEN_NPM_CMD
-            ]
-          }
+            ]}
         }
       },
       branch: branchName,
