@@ -298,7 +298,7 @@ async function regenGoldens (context, branchName) {
   const data = JSON.stringify({
     request: {
       config: {
-        merge_mode: 'merge',
+        merge_mode: 'replace',
         script: [
           REGEN_NPM_CMD
         ]
