@@ -300,6 +300,7 @@ async function regenGoldens (context, branchName) {
       config: {
         merge_mode: 'replace',
         script: [
+          'npm install',
           REGEN_NPM_CMD
         ]
       },
