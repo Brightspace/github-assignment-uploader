@@ -246,10 +246,10 @@ async function makeCommentFailure (context) {
     number: issueNum
   })
 
-  console.log(`${INFO_PREFIX}Leaving a comment on the PR due to a failed visual difference test.`)
+  // console.log(`${INFO_PREFIX}Leaving a comment on the PR due to a failed visual difference test.`)
 
   // Post a comment on the PR
-  return context.github.issues.createComment(params)
+  // return context.github.issues.createComment(params)
 }
 
 // Gets the issue number associated with a CR.
@@ -363,7 +363,7 @@ async function makeCommentRegen (context, issueNum, branchName, reqID) {
       }
       const buildURL = `${TRAVIS_HOME_BASE}${repoPath.split('/repos/')[1]}${TRAVIS_BUILDS_PATH}${buildID}`
 
-      console.log(`${INFO_PREFIX}Leaving a comment on the PR to notify the dev of the regeneration.`)
+      // console.log(`${INFO_PREFIX}Leaving a comment on the PR to notify the dev of the regeneration.`)
 
       // Let the dev know what is going on.
       const params = context.issue({
@@ -376,7 +376,7 @@ async function makeCommentRegen (context, issueNum, branchName, reqID) {
       await reRunBuild(context, issueNum)
 
       // Post a comment on the PR
-      return context.github.issues.createComment(params)
+      // return context.github.issues.createComment(params)
     }
   } catch (error) {
     console.log(`${ERROR_PREFIX}${error}`)
