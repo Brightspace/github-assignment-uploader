@@ -5,6 +5,7 @@
 > A GitHub App built with [Probot](https://github.com/probot/probot) that comments on PRs when Visual Difference checks fail.
 
 # Table of Contents
+
 - 1 - [Deploying your own instance of the Bot](README.md/#deploying-your-own-instance-of-the-bot)
   - 1.1 - [Dependency Installation and Running the Bot Locally](README.md/#dependency-installation-and-running-the-bot-locally)
   - 1.2 - [Creating your own GitHub app](README.md/#creating-your-own-github-app)
@@ -17,7 +18,8 @@
 - 3 - [Other](README.md/#other)
   - 3.1 - [Screenshots](README.md/#screenshots)
   - 3.2 - [Tests](README.md/#tests)
-
+  - 3.2 - [Contributing](README.md/#contributing)
+  
 # Deploying your own instance of the Bot
 
 **These instructions are for *deploying your own instance* of the Visual-Difference Bot or *updating the existing instance* of the Bot. It is *highly recommended* you use the *already deployed instance* of the Bot. Instructions for that are [here](README.md#utilizing-the-deployed-bot-for-your-existing-brightspace-repo).**
@@ -42,6 +44,7 @@ npm run dev
 3. Be sure to update the **Webhook URL** in the **application settings on GitHub.**
 
 ## Testing Bot Locally
+
 You can test the bot locally on your own machine using [ngrok](https://ngrok.com/).
 
 1. Start the bot:
@@ -143,7 +146,13 @@ serverless logs -f probot -t
 # Other
 
 ## Screenshots
+
 ![Screenshot of the Visual Difference GitHub Check](screenshot.png)
 
 ## Tests
+
 Tests for this project are written with [Jest](https://facebook.github.io/jest/) and [Nock](https://github.com/nock/nock).
+
+## Contributing
+
+Contributions are welcome, please submit a pull request!
