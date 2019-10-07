@@ -59,7 +59,7 @@ def create_full_template():
 # Deploys the stack to AWS
 def deploy_to_aws():
 
-    log("Calling 'serverless' to deploy new stack...")
+    log("Calling 'serverless' to deploy stack...")
 
     process = subprocess.Popen(
         ["serverless", "deploy", "-v"],
@@ -106,9 +106,13 @@ def remove_from_aws():
     # Cleanup
     os.remove(TEMPLATE)
 
+
+
 # Logs data to stdout
 def log(text):
     print("{} {}".format(DEPLOYMENT, text))
+
+
 
 # Main routine
 def main():
@@ -120,13 +124,22 @@ def main():
         default=False,
         action='store_true'
     )
+    parser.add_argument(
+        "-d",
+        "--dry",
+        help="Outputs the 'serverless.yml' template and exits \
+         (useful for running serverless commands).",
+        default=False,
+        action='store_true'
+    )
     args = parser.parse_args()
 
     create_full_template()
-    if not args.remove_stack:
-        deploy_to_aws()
-    else:
-        remove_from_aws()
+    if not args.dry:
+        if not args.remove_stack:
+            deploy_to_aws()
+        else:
+            remove_from_aws()
 
     log("Done!")
 

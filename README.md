@@ -52,6 +52,9 @@ python3 deploy.py
 python3 deploy.py --remove-stack
 
 # Spy on the CloudWatch logs as they come in (for debugging purposes).
+# Output the serverless template and quit (dry mode).
+python3 deploy.py -d
+# View the logs
 serverless logs -f probot -t
 ```
 
