@@ -187,6 +187,19 @@ async function markCRCancelled (context) {
     conclusion: CANCELLED,
     started_at: context.payload.check_run.started_at,
     completed_at: context.payload.check_run.completed_at,
+    actions: [{
+      label: 'Regenerate Goldens',
+      description: 'Regenerate the Goldens from this branch.',
+      identifier: REGEN_CMD
+    }, {
+      label: 'Reset Goldens',
+      description: 'Reset Goldens to the master branch.',
+      identifier: MASTER_CMD
+    }],
+    output: {
+      title: CHECK_RUN_NAME,
+      summary: 'Visual difference tests failed.'
+    },
     output: {
       title: CHECK_RUN_NAME,
       summary: 'Visual difference tests were cancelled.'
