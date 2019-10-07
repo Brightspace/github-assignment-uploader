@@ -52,6 +52,9 @@ python3 deploy.py
 python3 deploy.py --remove-stack
 
 # Spy on the CloudWatch logs as they come in (for debugging purposes).
+# Output the serverless template and quit (dry mode).
+python3 deploy.py -d
+# View the logs
 serverless logs -f probot -t
 ```
 
@@ -97,7 +100,7 @@ jobs:
     script: frauci-update-version && export TRAVIS_TAG=$(frauci-get-version)
 ```
 
-Make sure you have the appropriate Travis secure environment variables required by the [visual-diff package](https://github.com/BrightspaceUI/visual-diff#running-in-ci).
+Make sure you have the appropriate Travis secure environment variables required by the [visual-diff package](https://github.com/BrightspaceUI/visual-diff#running-in-ci), you need to use `travis encrypt` to add these to your travis config.
 
 ```yaml
 env:

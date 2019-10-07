@@ -25,6 +25,8 @@ const CANCELLED = 'cancelled'
 const REGEN_CMD = 'r'
 const MASTER_CMD = 'm'
 
+const LEAVE_COMMENTS = false
+
 /*
  * ---------------------------------------------------------------------
  * -----------The command that regenerates the Golden images------------
@@ -246,10 +248,12 @@ async function makeCommentFailure (context) {
     number: issueNum
   })
 
-  console.log(`${INFO_PREFIX}Leaving a comment on the PR due to a failed visual difference test.`)
+  if (LEAVE_COMMENTS) {
+    console.log(`${INFO_PREFIX}Leaving a comment on the PR due to a failed visual difference test.`)
 
-  // Post a comment on the PR
-  return context.github.issues.createComment(params)
+    // Post a comment on the PR
+    return context.github.issues.createComment(params)
+  }
 }
 
 // Gets the issue number associated with a CR.
@@ -299,9 +303,17 @@ async function regenGoldens (context, branchName) {
     request: {
       config: {
         merge_mode: 'merge',
-        script: [
-          REGEN_NPM_CMD
-        ]
+        install: [
+          'npm install'
+        ],
+        jobs: {
+          include: [{
+            stage: 'regen-goldens',
+            script: [
+              REGEN_NPM_CMD
+            ]
+          }]
+        }
       },
       branch: branchName,
       message: `[#${issueNum}] Regenerating the Goldens from "${branchName}"`
@@ -363,7 +375,9 @@ async function makeCommentRegen (context, issueNum, branchName, reqID) {
       }
       const buildURL = `${TRAVIS_HOME_BASE}${repoPath.split('/repos/')[1]}${TRAVIS_BUILDS_PATH}${buildID}`
 
-      console.log(`${INFO_PREFIX}Leaving a comment on the PR to notify the dev of the regeneration.`)
+      if (LEAVE_COMMENTS) {
+        console.log(`${INFO_PREFIX}Leaving a comment on the PR to notify the dev of the regeneration.`)
+      }
 
       // Let the dev know what is going on.
       const params = context.issue({
@@ -376,7 +390,9 @@ async function makeCommentRegen (context, issueNum, branchName, reqID) {
       await reRunBuild(context, issueNum)
 
       // Post a comment on the PR
-      return context.github.issues.createComment(params)
+      if (LEAVE_COMMENTS) {
+        return context.github.issues.createComment(params)
+      }
     }
   } catch (error) {
     console.log(`${ERROR_PREFIX}${error}`)
@@ -411,8 +427,10 @@ async function reRunBuild (context, issueNum) {
     }
   }
 
-  contactTravisReRun(buildIDPR)
-  contactTravisReRun(buildIDBranch)
+  console.log(`Contacting Travis about a build re-run of ${buildIDPR} and ${buildIDBranch}.`)
+
+  await contactTravisReRun(buildIDPR)
+  await contactTravisReRun(buildIDBranch)
 }
 
 // Re-run a specific Travis build
