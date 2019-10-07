@@ -92,7 +92,7 @@ env:
   - secure: TOKEN
 ```
 
-4. The important thing to note above, is that the jobs have been split into multiple stages. The first stage is the normal tests you want to run (with whatever name you would like it to be). The second stage is the important one (it must be the second stage) and the name must be named `visual-difference-tests`. This is what the bot will use to check the status of your Visual Difference tests, additionally the Travis check's name must be `Travis CI - Pull Request`.
+4. The important thing to note above, is that the jobs have been split into multiple stages. The first stage is the normal tests you want to run (with whatever name you would like it to be). The second stage is the important one (it must be the second stage) and the name must be named `visual-difference-tests`. This is what the bot will use to check the status of your Visual Difference tests.
 
 **Warning:**
 If your repo is using the `after_success`, `after_script`, etc. options to create a release and increment versions (frauci-update-version), this script needs to be moved into it's own stage (it can be named anything, but in the example above it is `update-version`). **If this stage isn't created, that script will get run twice after the completion of each stage, which results in your version being incremented twice.**
