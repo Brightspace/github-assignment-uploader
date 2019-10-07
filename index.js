@@ -427,8 +427,10 @@ async function reRunBuild (context, issueNum) {
     }
   }
 
-  contactTravisReRun(buildIDPR)
-  contactTravisReRun(buildIDBranch)
+  console.log(`Contacting Travis about a build re-run of ${buildIDPR} and ${buildIDBranch}.`)
+
+  await contactTravisReRun(buildIDPR)
+  await contactTravisReRun(buildIDBranch)
 }
 
 // Re-run a specific Travis build
@@ -446,6 +448,8 @@ async function contactTravisReRun (buildID) {
         },
         timeout: 5000
       })
+      
+      console.log(`Travis responded: ${response.body}.`)
 
     if (response.statusCode === 200 || response.statusCode === 201) {
       console.log(`${INFO_PREFIX}Requsted a re-run of the Travis build.`)
