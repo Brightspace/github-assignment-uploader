@@ -60,7 +60,7 @@ ngrok http 3000
 In order to have this bot watch the Visual Difference tests for a specific repo, you need to have a custom Travis CI configuration.
 
 1. Ensure that your repository is setup with the [visual-diff package](https://github.com/BrightspaceUI/visual-diff).
-2. Make sure that the GitHub application is installed on the desired repo.
+2. Make sure that the GitHub application is [installed on the desired repo](README.md/#setting-up-the-bot-on-your-existing-brightspace-repo).
 3. Modify your Travis CI config so that it has the following `jobs/stages` section.
 
 ```yaml
