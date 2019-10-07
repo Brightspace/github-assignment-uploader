@@ -200,10 +200,6 @@ async function markCRCancelled (context) {
     }],
     output: {
       title: CHECK_RUN_NAME,
-      summary: 'Visual difference tests failed.'
-    },
-    output: {
-      title: CHECK_RUN_NAME,
       summary: 'Visual difference tests were cancelled.'
     },
     details_url: context.payload.check_run.details_url
