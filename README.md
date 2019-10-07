@@ -20,7 +20,7 @@
 
 # Deploying your own instance of the Bot
 
-**These instructions are for *deploying your own instance* of the Visual-Difference Bot or *updating the existing instance* of the Bot. It is *highly recommended* you use The *already deployed instance* of the Bot. Instructions for that are [here](README.md#utilizing-the-deployed-bot-for-your-existing-brightspace-repo).**
+**These instructions are for *deploying your own instance* of the Visual-Difference Bot or *updating the existing instance* of the Bot. It is *highly recommended* you use the *already deployed instance* of the Bot. Instructions for that are [here](README.md#utilizing-the-deployed-bot-for-your-existing-brightspace-repo).**
 
 ## Dependency Installation and Running the Bot Locally
 
