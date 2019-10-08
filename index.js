@@ -23,7 +23,7 @@ const SUCCESS = 'success'
 const CANCELLED = 'cancelled'
 
 const REGEN_CMD = 'r'
-const MASTER_CMD = 'm'
+// const MASTER_CMD = 'm'
 
 const LEAVE_COMMENTS = false
 
@@ -37,7 +37,7 @@ const REGEN_NPM_CMD = `npm run build && ${MAKE_GOLDENS} || ${MAKE_GOLDENS}`
 
 const INFO_PREFIX = '[INFO] '
 const ERROR_PREFIX = '[ERROR] '
-const DEFAULT_BRANCH = 'master'
+// const DEFAULT_BRANCH = 'master'
 
 // Global Variables
 var repoPath = ''
@@ -98,9 +98,9 @@ module.exports = app => {
       await regenGoldens(context, branch)
     }
     // Are we regenerating the Goldens from the master branch?
-    if (context.payload.requested_action.identifier === MASTER_CMD) {
-      await regenGoldens(context, DEFAULT_BRANCH)
-    }
+    // if (context.payload.requested_action.identifier === MASTER_CMD) {
+    //   await regenGoldens(context, DEFAULT_BRANCH)
+    // }
   })
 
   // If the user clicks the 'Re-run' button on a failed check-run.
@@ -194,11 +194,13 @@ async function markCRCancelled (context) {
       label: 'Regenerate Goldens',
       description: 'Regenerate the Goldens from this branch.',
       identifier: REGEN_CMD
-    }, {
-      label: 'Reset Goldens',
-      description: 'Reset Goldens to the master branch.',
-      identifier: MASTER_CMD
-    }],
+    }
+      // {
+      //   label: 'Reset Goldens',
+      //   description: 'Reset Goldens to the master branch.',
+      //   identifier: MASTER_CMD
+      // }
+    ],
     output: {
       title: CHECK_RUN_NAME,
       summary: 'Visual difference tests were cancelled.'
@@ -226,11 +228,13 @@ async function markCRFailed (context) {
       label: 'Regenerate Goldens',
       description: 'Regenerate the Goldens from this branch.',
       identifier: REGEN_CMD
-    }, {
-      label: 'Reset Goldens',
-      description: 'Reset Goldens to the master branch.',
-      identifier: MASTER_CMD
-    }],
+    }
+      // {
+      //   label: 'Reset Goldens',
+      //   description: 'Reset Goldens to the master branch.',
+      //   identifier: MASTER_CMD
+      // }
+    ],
     output: {
       title: CHECK_RUN_NAME,
       summary: 'Visual difference tests failed.'
