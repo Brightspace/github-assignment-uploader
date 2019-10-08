@@ -32,8 +32,8 @@ const LEAVE_COMMENTS = false
  * -----------The command that regenerates the Golden images------------
  * ---------------------------------------------------------------------
  */
-const REGEN_NPM_CMD = `npm run build && ${MAKE_GOLDENS} || ${MAKE_GOLDENS}`
 const MAKE_GOLDENS = 'npm run test:diff:golden && npm run test:diff:golden:commit'
+const REGEN_NPM_CMD = `npm run build && ${MAKE_GOLDENS} || ${MAKE_GOLDENS}`
 
 const INFO_PREFIX = '[INFO] '
 const ERROR_PREFIX = '[ERROR] '
