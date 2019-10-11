@@ -100,6 +100,16 @@ env:
 **Warning:**
 If your repo is using the `after_success`, `after_script`, etc. options to create a release and increment versions (frauci-update-version), this script needs to be moved into it's own stage (it can be named anything, but in the example above it is `update-version`). **If this stage isn't created, that script will get run twice after the completion of each stage, which results in your version being incremented twice.**
 
+If putting this script in it's own stage, causes the build to fail, then you can go back to using `after_success` as long as you encapsulate the script with the if-check shown below.
+
+```yaml
+after_success:
+- |
+  if [ $TRAVIS_BUILD_STAGE_NAME == "Code-tests" ]; then
+    frauci-update-version -d=skip && export TRAVIS_TAG=$(frauci-get-version)
+  fi
+```
+
 ## Secrets Management
 
 1. Create a .env file (see [example](.env.example)) with the appropriate values for your situation.
