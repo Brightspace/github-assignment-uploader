@@ -105,7 +105,7 @@ If putting this script in it's own stage, causes the build to fail, then you can
 ```yaml
 after_success:
 - |
-  if [ $TRAVIS_BUILD_STAGE_NAME == "Code-tests" ]; then
+  if [ $TRAVIS_BUILD_STAGE_NAME == "Visual-difference-tests" ]; then
     frauci-update-version -d=skip && export TRAVIS_TAG=$(frauci-get-version)
   fi
 ```
