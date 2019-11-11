@@ -28,12 +28,17 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
       throw new Error("Did not include repo name in request.");
     }
     const service: UserService = new UserService(username, userServiceImpl);
-    return new Submission({ blob: service.getRepoAsArchive(repoName) });;
+    const blob = await service.getRepoAsArchive(repoName);
+    console.log(blob)
+    const submission: Submission = new Submission({ blob });
+    return submission;
   }
 
   const getPublicURL = async (req: Request): Promise<{ url: URL }> => {
     const service: UserService = new UserService("NOT DEFINED", userServiceImpl);
-    return { url: service.getPublicURL() }
+    const url: URL = await service.getPublicURL()
+    console.log(url)
+    return { url }
   }
 
   const getUserInfo = async (req: Request): Promise<IUser> => {

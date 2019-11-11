@@ -1,28 +1,28 @@
 import { IUser } from "../entities/User";
 
 export interface IUserService {
-    getInstallationId: (username: string) => string
-    listRepos: (username: string) => string[]
-    getArchive: (username: string, repoName: string) => Uint8Array
-    getPublicURL: () => URL
+    getInstallationId: (username: string) => Promise<string>
+    listRepos: (username: string) => Promise<string[]>
+    getArchive: (username: string, repoName: string) => Promise<Uint8Array>
+    getPublicURL: () => Promise<URL>
 }
 
 export class UserService {
     constructor(private username: string, private impl: IUserService) {}
 
-    getInstallationIdForUser(): string {
-        return this.impl.getInstallationId(this.username)
+    async getInstallationIdForUser(): Promise<string> {
+        return await this.impl.getInstallationId(this.username)
     }
 
-    getAvailableReposForUser(): string[] {
-        return this.impl.listRepos(this.username)
+    async getAvailableReposForUser(): Promise<string[]> {
+        return await this.impl.listRepos(this.username)
     }
 
-    getRepoAsArchive(repoName: string): Uint8Array {
-        return this.impl.getArchive(this.username, repoName);
+    async getRepoAsArchive(repoName: string): Promise<Uint8Array> {
+        return await this.impl.getArchive(this.username, repoName);
     }
 
-    getPublicURL(): URL {
-        return this.impl.getPublicURL();
+    async getPublicURL(): Promise<URL> {
+        return await this.impl.getPublicURL();
     }
 }

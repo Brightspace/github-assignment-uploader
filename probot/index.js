@@ -4,6 +4,7 @@ const got = require('got')
 const fs = require('fs')
 const path = require('path')
 
+const { createRepoRouter } = require("../brightspace-github-api/build/src/routes/RepoRouter")
 const INFO_PREFIX = '[INFO] '
 const ERROR_PREFIX = '[ERROR] '
 
@@ -15,6 +16,8 @@ var theApp = null
  */
 module.exports = app => {
   theApp = app
+  const baseRouter = app.route('/api')
+  baseRouter.use(createRepoRouter(UserServiceImplementation))
 }
 
 async function getContext() {
@@ -50,7 +53,7 @@ async function listReposForUser(username) {
   const repos = output.data.repositories
    
   for (const element of repos) {
-    result.push(element.full_name)
+    result.push(element.name)
   }
 
   return result
@@ -66,9 +69,13 @@ async function getRepoArchive(username, repo_name) {
       archive_format: 'zipball',
       ref: ''
     }
+    
+    console.log(params)
 
     const github = await getContext(await getInstallationID(username));
     const url = (await github.repos.getArchiveLink(params)).url
+
+    console.log("url", url)
 
     await new Promise((resolve, reject) => {
       const stream = got.stream(url)
@@ -82,11 +89,13 @@ async function getRepoArchive(username, repo_name) {
         resolve()
       })
     })
-
+    console.log("buffer", buffer)
     return buffer
 
   } catch (error) {
     console.log(`${ERROR_PREFIX}${error}`)
+  } finally {
+    console.log("finally")
   }
 }
 
