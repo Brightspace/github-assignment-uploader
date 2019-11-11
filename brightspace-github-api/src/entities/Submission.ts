@@ -1,13 +1,20 @@
-export class Submission {
-    constructor(private submission: {
-        srcObject: any
-    }) {
-        if (!submission.srcObject()) {
-            throw new Error("Source object was not included for submission.");
-        }
+import { IEntity } from "./Entity";
+
+export interface ISubmission {
+    blob: Uint8Array
+}
+
+export class Submission implements IEntity, ISubmission {
+    public blob: Uint8Array
+
+    constructor(private submission: ISubmission) {
+        this.blob = submission.blob
+        this.validate()
     }
 
-    public getSrcObject(): any {
-        return this.submission.srcObject;
+    public validate() {
+        if (!this.blob) {
+            throw new Error("Source object was not included for submission.");
+        }
     }
 }

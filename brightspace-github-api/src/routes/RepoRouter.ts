@@ -2,6 +2,7 @@ const express = require("express");
 import { Request, Response, Router } from "express";
 import { UserService, IUserService } from "../model/UserService";
 import { User, IUser } from "../entities/User";
+import { ISubmission, Submission } from "../entities/Submission";
 
 const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Response) => void => {
   return async (req: Request, res: Response) => {
@@ -17,18 +18,7 @@ const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Respons
 }
 
 export const createRepoRouter = (userServiceImpl: IUserService): Router => {
-  // const userEndpoint = async (req: Request): Promise<any> => {
-  //   const user: string = req.params.user
-  //   if (!user) {
-  //     throw new Error("Did not include user in request.");
-  //   }
-
-  //   const user: IUser = new User({ username:  });
-  //   const service: UserService = new UserService(user, userServiceImpl);
-  //   res.send(service.getAvailableReposForUser())
-  // }
-
-  const getRepoArchive = async (req: Request): Promise<{ blob: Uint8Array }> => {
+  const getRepoArchive = async (req: Request): Promise<ISubmission> => {
     const username: string = req.params.user
     const repoName: string = req.params.repo
     if (!username) {
@@ -38,14 +28,12 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
       throw new Error("Did not include repo name in request.");
     }
     const service: UserService = new UserService(username, userServiceImpl);
-    const blob: Uint8Array = service.getRepoAsArchive(repoName);
-    return { blob };
+    return new Submission({ blob: service.getRepoAsArchive(repoName) });;
   }
 
   const getPublicURL = async (req: Request): Promise<{ url: URL }> => {
     const service: UserService = new UserService("NOT DEFINED", userServiceImpl);
-    const url: URL = service.getPublicURL();
-    return { url }
+    return { url: service.getPublicURL() }
   }
 
   const getUserInfo = async (req: Request): Promise<IUser> => {
@@ -56,8 +44,7 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     const service: UserService = new UserService(username, userServiceImpl);
     const installationId: string = await service.getInstallationIdForUser();
     const repos: string[] = await service.getAvailableReposForUser();
-    const user: IUser = new User({ username, installationId, repos: repos.map((repo: string) => ({ repoName: repo })) })
-    return user
+    return new User({ username, installationId, repos: repos.map((repo: string) => ({ repoName: repo })) })
   }
 
   const router: Router = express.Router();
