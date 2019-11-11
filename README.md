@@ -1,6 +1,6 @@
 # Github Assignment Uploader for Brightspace
 
-** This README is currently *outdated*.
+** This README is currently *outdated*. **
 
 [![Build Status](https://travis-ci.com/BrightspaceUI/visual-difference-bot.svg?branch=master)](https://travis-ci.com/BrightspaceUI/visual-difference-bot)
 
