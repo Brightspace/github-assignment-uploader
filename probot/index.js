@@ -82,7 +82,7 @@ async function getRepoArchive(username, repo_name) {
         resolve()
       })
     })
-    
+
     return buffer
 
   } catch (error) {
@@ -95,4 +95,11 @@ async function getPublicURL() {
   const output = await github.apps.getAuthenticated()
 
   return output.data.html_url
+}
+
+const UserServiceImplementation = {
+  getInstallationId: getInstallationID,
+  listRepos: listReposForUser,
+  getArchive: getRepoArchive,
+  getPublicURL: getPublicURL
 }
