@@ -1,0 +1,25 @@
+{
+  "name": "github-assignment-uploader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "install-api": "cd ./brightspace-github-api && npm install",
+    "install-probot": "cd ./probot && npm install",
+    "install": "npm run install-api && npm run install-probot",
+    "postinstall": "cd ./brightspace-github-api && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DiljotSG/github-assignment-uploader.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DiljotSG/github-assignment-uploader/issues"
+  },
+  "homepage": "https://github.com/DiljotSG/github-assignment-uploader#readme"
+}
