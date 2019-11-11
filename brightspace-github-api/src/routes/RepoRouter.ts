@@ -16,9 +16,6 @@ const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Respons
   }
 }
 
-
-
-
 export const createRepoRouter = (userServiceImpl: IUserService): Router => {
   // const userEndpoint = async (req: Request): Promise<any> => {
   //   const user: string = req.params.user
@@ -31,6 +28,25 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
   //   res.send(service.getAvailableReposForUser())
   // }
 
+  const getRepoArchive = async (req: Request): Promise<{ blob: Uint8Array }> => {
+    const username: string = req.params.user
+    const repoName: string = req.params.repo
+    if (!username) {
+      throw new Error("Did not include user in request.");
+    }
+    if (!repoName) {
+      throw new Error("Did not include repo name in request.");
+    }
+    const service: UserService = new UserService(username, userServiceImpl);
+    const blob: Uint8Array = service.getRepoAsArchive(repoName);
+    return { blob };
+  }
+
+  const getPublicURL = async (req: Request): Promise<{ url: URL }> => {
+    const service: UserService = new UserService("NOT DEFINED", userServiceImpl);
+    const url: URL = service.getPublicURL();
+    return { url }
+  }
 
   const getUserInfo = async (req: Request): Promise<IUser> => {
     const username: string = req.params.user
@@ -43,8 +59,10 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     const user: IUser = new User({ username, installationId, repos: repos.map((repo: string) => ({ repoName: repo })) })
     return user
   }
-  
+
   const router: Router = express.Router();
-  router.get("/:user", wrapEndpoint(getUserInfo));
+  router.get("/repo/:user", wrapEndpoint(getUserInfo));
+  router.get("/repo/:user/:repo", wrapEndpoint(getRepoArchive));
+  router.get("/publicurl", wrapEndpoint(getPublicURL));
   return router
 }

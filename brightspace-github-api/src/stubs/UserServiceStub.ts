@@ -14,4 +14,12 @@ export class UserServiceStub implements IUserService {
             "repo4",
         ]
     }
+
+    public getArchive(username: string, repoName: string): Uint8Array {
+        return new Uint8Array(new ArrayBuffer(8));
+    }
+
+    public getPublicURL(): URL {
+        return new URL("https://google.ca")
+    }
 }

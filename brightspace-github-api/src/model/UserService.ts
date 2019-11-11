@@ -3,6 +3,8 @@ import { IUser } from "../entities/User";
 export interface IUserService {
     getInstallationId: (username: string) => string
     listRepos: (username: string) => string[]
+    getArchive: (username: string, repoName: string) => Uint8Array
+    getPublicURL: () => URL
 }
 
 export class UserService {
@@ -14,5 +16,13 @@ export class UserService {
 
     getAvailableReposForUser(): string[] {
         return this.impl.listRepos(this.username)
+    }
+
+    getRepoAsArchive(repoName: string): Uint8Array {
+        return this.impl.getArchive(this.username, repoName);
+    }
+
+    getPublicURL(): URL {
+        return this.impl.getPublicURL();
     }
 }
