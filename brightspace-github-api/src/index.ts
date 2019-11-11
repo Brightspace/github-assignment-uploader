@@ -2,7 +2,8 @@ const express = require("express");
 import { Request, Response } from "express";
 const bodyParser = require("body-parser");
 const helmet = require("helmet");
-import { BasicRouter } from "./routes/BasicRouter";
+import { createRepoRouter } from "./routes/RepoRouter";
+import { UserServiceStub } from "./stubs/UserServiceStub";
 
 const app = express();
 
@@ -10,13 +11,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(helmet());
 
-app.use("/BasicRouter", BasicRouter);
+app.use("/api", createRepoRouter(new UserServiceStub()));
 
 app.get("/healthstatus", (req: Request, res: Response) => {
   res.json({ status: "healthy" });
 });
 
-const port = 5000;
+const port = process.env.PORT || 5000;
 app.listen(port, () => {
   console.log(`listening on port ${port}`);
 });
