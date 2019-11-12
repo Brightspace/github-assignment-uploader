@@ -8,8 +8,8 @@
   "scripts": {
     "install-api": "cd ./brightspace-github-api && npm install",
     "install-probot": "cd ./probot && npm install",
-    "install": "npm run install-api && npm run install-probot",
-    "postinstall": "cd ./brightspace-github-api && npm run build"
+    "build-ts": "cd ./brightspace-github-api && npm run build",
+    "postinstall": "npm run install-api && npm run install-probot && npm run build-ts"
   },
   "repository": {
     "type": "git",
