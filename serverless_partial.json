@@ -11,12 +11,15 @@
     "exclude": [
       "test/**",
       ".git/**",
-      ".env.example",
-      ".env",
+      "probot/.env.example",
+      "probot/.env",
       "LICENSE",
       "README.md",
-      "travis.yml",
-      "app.yml"
+      "probot/.travis.yml",
+      "probot/app.yml",
+      "brightspace-github-api/src/**",
+      "brightspace-github-api/tests/**",
+      "probot/test/**"
     ]
   },
   "functions": {

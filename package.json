@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "GitHub Assignment Uploader for Brightspace",
   "main": "index.js",
-  "dependencies": {},
+  "dependencies": {
+    "@probot/serverless-lambda": "^0.3.0",
+    "probot": "^7.5.3"
+  },
   "devDependencies": {},
   "scripts": {
     "install-api": "cd ./brightspace-github-api && npm install",

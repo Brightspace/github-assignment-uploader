@@ -14,7 +14,7 @@ from dotenv import dotenv_values
 TEMPLATE = "serverless.yml"
 PARTIAL_TEMPLATE = "serverless_partial.json"
 
-DOT_ENV = ".env"
+DOT_ENV = "probot/.env"
 
 PRV = "provider"
 ENV = "environment"
@@ -23,7 +23,6 @@ SAMPLE_VAL = "variable1"
 APP_ID = "APP_ID"
 PRIVATE_KEY = "PRIVATE_KEY"
 WEBHOOK_SECRET = "WEBHOOK_SECRET"
-TRAVIS_AUTH = "TRAVIS_AUTH"
 
 DEPLOYMENT = "Deployment Script:"
 
@@ -48,8 +47,7 @@ def create_full_template():
     data[PRV][ENV][APP_ID] = secrets[APP_ID]
     data[PRV][ENV][PRIVATE_KEY] = secrets[PRIVATE_KEY]
     data[PRV][ENV][WEBHOOK_SECRET] = secrets[WEBHOOK_SECRET]
-    data[PRV][ENV][TRAVIS_AUTH] = secrets[TRAVIS_AUTH]
-
+    
     log("Writing full 'serverless.yml' template...")
 
     with open(TEMPLATE, "w") as data_file:
