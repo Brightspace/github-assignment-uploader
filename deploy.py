@@ -12,9 +12,9 @@ from dotenv import dotenv_values
 
 # Constants
 TEMPLATE = "serverless.yml"
-PARTIAL_TEMPLATE = "serverless_partial.json"
+PARTIAL_TEMPLATE = "serverless-template.json"
 
-DOT_ENV = "probot/.env"
+DOT_ENV = ".env"
 
 PRV = "provider"
 ENV = "environment"
