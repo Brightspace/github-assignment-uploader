@@ -13,3 +13,5 @@ jspm_packages
 package-lock.json
 
 serverless.yml
+
+brightspace-github-api/build/*
