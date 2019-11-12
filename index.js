@@ -2,7 +2,7 @@
 
 const got = require('got')
 
-const { createRepoRouter } = require("../brightspace-github-api/build/src/routes/RepoRouter")
+const { createRepoRouter } = require("./brightspace-github-api/build/src/routes/RepoRouter")
 const INFO_PREFIX = '[INFO] '
 const ERROR_PREFIX = '[ERROR] '
 
