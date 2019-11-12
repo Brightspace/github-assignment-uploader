@@ -29,7 +29,6 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     }
     const service: UserService = new UserService(username, userServiceImpl);
     const blob = await service.getRepoAsArchive(repoName);
-    console.log(blob)
     const submission: Submission = new Submission({ blob });
     return submission;
   }
@@ -37,7 +36,6 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
   const getPublicURL = async (req: Request): Promise<{ url: URL }> => {
     const service: UserService = new UserService("NOT DEFINED", userServiceImpl);
     const url: URL = await service.getPublicURL()
-    console.log(url)
     return { url }
   }
 
