@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "got": "^9.6.0",
-    "probot": "^7.5.3",
+    "probot": "^9.6.4",
     "serverless-http": "^2.3.0"
   },
   "devDependencies": {
