@@ -1,7 +1,7 @@
 {
   "name": "github-assignment-uploader",
   "version": "1.0.0",
-  "description": "",
+  "description": "GitHub Assignment Uploader for Brightspace",
   "main": "index.js",
   "dependencies": {},
   "devDependencies": {},
@@ -16,10 +16,10 @@
     "url": "git+https://github.com/DiljotSG/github-assignment-uploader.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "D2L Corporation",
+  "license": "Apache License 2.0",
   "bugs": {
     "url": "https://github.com/DiljotSG/github-assignment-uploader/issues"
   },
-  "homepage": "https://github.com/DiljotSG/github-assignment-uploader#readme"
+  "homepage": "https://github.com/DiljotSG/github-assignment-uploader"
 }

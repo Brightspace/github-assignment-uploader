@@ -1,7 +1,7 @@
 {
   "name": "brightspace-github-api",
   "version": "1.0.0",
-  "description": "",
+  "description": "The web API for the Brightspace Assignment Uploader / Wraps the GitHub API for our purposes.",
   "main": "index.js",
   "scripts": {
     "test": "mocha build/tests/index.test.js",
@@ -12,8 +12,8 @@
     "clean": "rm -rf ./build"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "D2L Corporation",
+  "license": "Apache License 2.0",
   "dependencies": {
     "@types/chai": "^4.2.4",
     "@types/express": "^4.17.2",
