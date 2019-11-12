@@ -19,19 +19,19 @@ module.exports = app => {
 }
 
 // Returns the authenticated app context
-async function getContext() {
+async function getAppContext() {
   return await theApp.auth()
 }
 
 // Returns the authenticated app context as the given installation ID
-async function getContext(installation_id) {
+async function getUserContext(installation_id) {
   return await theApp.auth(installation_id)
 }
 
 // Returns the user's installation ID for this app
 async function getInstallationID(username) {
   let result = 0
-  const github = await getContext()
+  const github = await getAppContext()
   const output = await github.apps.listInstallations()
 
   for (const element of output.data) {
@@ -48,7 +48,7 @@ async function getInstallationID(username) {
 
 // Returns a list of all the repos for the given user
 async function listReposForUser(username) {
-  const github = await getContext(await getInstallationID(username));
+  const github = await getUserContext(await getInstallationID(username));
   const output = await github.apps.listRepos()
   let result = []
 
@@ -73,7 +73,7 @@ async function getRepoArchive(username, repo_name) {
       ref: ''
     }
 
-    const github = await getContext(await getInstallationID(username));
+    const github = await getUserContext(await getInstallationID(username));
     const resp = await github.repos.getArchiveLink(params)
 
     // If the API gives us a URL, we can stream the zip into a buffer
@@ -104,9 +104,8 @@ async function getRepoArchive(username, repo_name) {
 
 // Gives the public installation URL of the GitHub app
 async function getPublicURL() {
-  const github = await getContext()
+  const github = await getAppContext()
   const output = await github.apps.getAuthenticated()
-
   return output.data.html_url
 }
 

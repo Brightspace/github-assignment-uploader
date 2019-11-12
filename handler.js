@@ -1,6 +1,6 @@
 // handler.js
 const { Probot } = require('probot')
-const serverless = require('serverless-http');
+const serverless = require('serverless-http')
 
 const probotApp = require('./')
 myProbot = new Probot({})
