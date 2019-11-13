@@ -1,1 +1,18 @@
 node_modules
+.env
+.pem
+.rb
+
+# package directories
+node_modules
+jspm_packages
+
+# Serverless directories
+.serverless
+
+package-lock.json
+
+serverless.yml
+
+# Compiled type script
+brightspace-github-api/build/*
