@@ -1,10 +1,20 @@
 // handler.js
-const { Probot } = require('probot')
+
+const { createProbot } = require('probot')
+const { findPrivateKey } = require('probot/lib/private-key')
 const serverless = require('serverless-http')
-
 const probotApp = require('./')
-myProbot = new Probot({})
 
-const app = myProbot.load(probotApp)
+const options = {
+  id: process.env.APP_ID,
+  port: process.env.PORT || 3000,
+  secret: process.env.WEBHOOK_SECRET,
+  clientid: process.env.CLIENT_ID,
+  clientsecret: process.env.CLIENT_SECRET,
+  cert: findPrivateKey()
+}
 
-module.exports.probot = serverless(myProbot.server)
+const probot = createProbot(options)
+const app = probot.load(probotApp)
+
+module.exports.probot = serverless(probot.server)
