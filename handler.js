@@ -1,5 +1,3 @@
-// handler.js
-
 const { createProbot } = require('probot')
 const { findPrivateKey } = require('probot/lib/private-key')
 const serverless = require('serverless-http')

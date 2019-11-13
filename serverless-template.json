@@ -19,7 +19,9 @@
       "app.yml",
       "brightspace-github-api/src/**",
       "brightspace-github-api/tests/**",
-      ".gitignore"
+      ".gitignore",
+      "requirements.txt",
+      "deploy.py"
     ]
   },
   "functions": {
