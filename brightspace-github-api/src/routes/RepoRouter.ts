@@ -50,9 +50,23 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     return new User({ username, installationId, repos: repos.map((repo: string) => ({ repoName: repo })) })
   }
 
+  const getRepoArchiveLink = async (req: Request): Promise<{ url: URL }> => {
+    const username: string = req.params.user
+    const repoName: string = req.params.repo
+    if (!username) {
+      throw new Error("Did not include user in request.");
+    }
+    if (!repoName) {
+      throw new Error("Did not include repo name in request.");
+    }
+    const service: UserService = new UserService(username, userServiceImpl);
+    return { url: await service.getArchiveLink(repoName) };
+  }
+
   const router: Router = express.Router();
   router.get("/repo/:user", wrapEndpoint(getUserInfo));
   router.get("/repo/:user/:repo", wrapEndpoint(getRepoArchive));
+  router.get("/repo/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
   router.get("/publicurl", wrapEndpoint(getPublicURL));
   return router
 }

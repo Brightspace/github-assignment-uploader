@@ -22,4 +22,8 @@ export class UserServiceStub implements IUserService {
     public async getPublicURL(): Promise<URL> {
         return new URL("https://google.ca")
     }
+
+    public async getArchiveLink(username: string, repoName: string): Promise<URL> {
+        return new URL("https://google.ca");
+    }
 }

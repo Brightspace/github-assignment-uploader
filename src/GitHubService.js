@@ -1,6 +1,7 @@
 const getPublicUrlImplementation = require('./use-cases/get-public-url')
 const getUserInformationImplementation = require('./use-cases/get-user-information')
 const getRepoArchiveImplementation = require('./use-cases/get-repo-archive');
+const getRepoArchiveLinkImplementation = require('./use-cases/get-repo-archive-link');
 
 const Joi = require('@hapi/joi');
 const { validate } = require('./use-cases/schema')
@@ -26,8 +27,7 @@ exports.GitHubService = (app) => {
         }).unknown(true)
 
         validate(output, schema)
-
-        return output.data.filter(element => username == element.account.login)[0].id
+        return output.data.filter(element => username.toLowerCase() === element.account.login.toLowerCase())[0].id
     }
 
     const getPublicUrl = async () => {
@@ -55,10 +55,26 @@ exports.GitHubService = (app) => {
         return await getRepoArchiveImplementation(github, params);
     }
 
+    const getRepoArchiveLink = async (username, repo_name) => {
+        const installationID = await getInstallationID(username)
+        const github = await getUserContext(installationID)
+
+        const params = {
+            owner: username,
+            repo: repo_name,
+            archive_format: 'zipball',
+            ref: '',
+            method: 'HEAD'
+        }
+
+        return await getRepoArchiveLinkImplementation(github, params);
+    }
+
     return {
         getInstallationID,
         listReposForUser,
         getRepoArchive,
-        getPublicUrl
+        getPublicUrl,
+        getRepoArchiveLink
     }
 }

@@ -7,7 +7,7 @@ export interface ISubmission {
 export class Submission implements IEntity, ISubmission {
     public blob: Uint8Array
 
-    constructor(private submission: ISubmission) {
+    constructor(submission: ISubmission) {
         this.blob = submission.blob
         this.validate()
     }

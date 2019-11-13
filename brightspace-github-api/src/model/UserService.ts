@@ -1,10 +1,9 @@
-import { IUser } from "../entities/User";
-
 export interface IUserService {
     getInstallationId: (username: string) => Promise<string>
     listRepos: (username: string) => Promise<string[]>
     getArchive: (username: string, repoName: string) => Promise<Uint8Array>
     getPublicURL: () => Promise<URL>
+    getArchiveLink: (username: string, repoName: string) => Promise<URL>
 }
 
 export class UserService {
@@ -24,5 +23,9 @@ export class UserService {
 
     async getPublicURL(): Promise<URL> {
         return await this.impl.getPublicURL();
+    }
+
+    async getArchiveLink(repoName: string): Promise<URL> {
+        return await this.impl.getArchiveLink(this.username, repoName)
     }
 }

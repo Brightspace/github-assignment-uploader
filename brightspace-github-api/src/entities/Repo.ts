@@ -8,7 +8,7 @@ export interface IRepo {
 export class Repo implements IEntity, IRepo {
     public repoName: string
 
-    constructor(private repo: IRepo) {
+    constructor(repo: IRepo) {
         this.repoName = repo.repoName
         this.validate();
     }
