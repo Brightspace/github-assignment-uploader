@@ -12,7 +12,7 @@ const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Respons
     } catch (error) {
       console.error(error);
       res.statusCode = 500;
-      res.json({ message: error.toString(), status: res.statusCode, secondMessage: "DOLGUTTT" });
+      res.json({ message: error.toString(), status: res.statusCode });
     }
   }
 }

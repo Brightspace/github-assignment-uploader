@@ -3,7 +3,6 @@
 const got = require('got')
 
 const { createRepoRouter } = require("./brightspace-github-api/build/src/routes/RepoRouter")
-const INFO_PREFIX = '[INFO] '
 const ERROR_PREFIX = '[ERROR] '
 
 // Globals
@@ -34,6 +33,7 @@ async function getInstallationID(username) {
   const github = await getAppContext()
   const output = await github.apps.listInstallations()
 
+  // Find the installation ID among all installations of this app
   for (const element of output.data) {
     const login = element.account.login
 
@@ -53,7 +53,8 @@ async function listReposForUser(username) {
   let result = []
 
   const repos = output.data.repositories
-   
+  
+  // Create the repo list
   for (const element of repos) {
     result.push(element.name)
   }
@@ -66,6 +67,7 @@ async function getRepoArchive(username, repo_name) {
   try {
     let buffer = []
 
+    // Request parameters for the repo archive
     const params = {
       owner: username,
       repo: repo_name,
@@ -77,10 +79,11 @@ async function getRepoArchive(username, repo_name) {
     const resp = await github.repos.getArchiveLink(params)
 
     // If the API gives us a URL, we can stream the zip into a buffer
-    // Otherwise, we were given the ZIP directly
-    if(resp.status == 200 && !('url' in resp)) {
+    // Otherwise, we were given the ZIP directly, send the buffer as-is
+    if(!('url' in resp)) {
       buffer = resp.data
     } else if('url' in resp) {
+      const url = resp.url
       await new Promise((resolve, reject) => {
         const stream = got.stream(url)
 
