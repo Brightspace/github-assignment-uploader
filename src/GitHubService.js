@@ -2,6 +2,9 @@ const getPublicUrlImplementation = require('./use-cases/get-public-url')
 const getUserInformationImplementation = require('./use-cases/get-user-information')
 const getRepoArchiveImplementation = require('./use-cases/get-repo-archive');
 
+const Joi = require('@hapi/joi');
+const { validate } = require('./use-cases/schema')
+
 exports.GitHubService = (app) => {
     const getAppContext = async () => {
         return await app.auth()
@@ -12,23 +15,19 @@ exports.GitHubService = (app) => {
     }
 
     const getInstallationID = async (username) => {
-        let result = 0
         const github = await getAppContext()
         const output = await github.apps.listInstallations()
       
-        // schema validation
+        const schema = Joi.object().keys({
+            status: Joi.number().min(200).max(299).required(),
+            data: Joi.array().items(Joi.object({
+                id: Joi.number().required()
+            }).unknown(true))
+        }).unknown(true)
 
-        // Find the installation ID among all installations of this app
-        for (const element of output.data) {
-          const login = element.account.login
-      
-          if (login == username) {
-            result = element.id
-            break
-          }
-        }
-      
-        return result
+        validate(output, schema)
+
+        return output.data.filter(element => username == element.account.login)[0].id
     }
 
     const getPublicUrl = async () => {

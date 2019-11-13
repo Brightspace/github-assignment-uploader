@@ -23,6 +23,7 @@
     "postinstall": "npm run install-api && npm run build-ts"
   },
   "dependencies": {
+    "@hapi/joi": "^16.1.7",
     "got": "^9.6.0",
     "probot": "^9.6.4",
     "serverless-http": "^2.3.0"
