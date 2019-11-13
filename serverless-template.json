@@ -19,14 +19,13 @@
       "app.yml",
       "brightspace-github-api/src/**",
       "brightspace-github-api/tests/**",
-      "brightspace-github-api/tsconfig.json",
       ".gitignore"
     ]
   },
   "functions": {
     "probot": {
       "handler": "handler.probot",
-      "timeout": 10,
+      "timeout": 30,
       "events": [
         {
           "http": {
