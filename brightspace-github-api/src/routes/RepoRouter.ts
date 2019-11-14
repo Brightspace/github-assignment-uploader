@@ -78,7 +78,7 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
 
     let result: boolean = true
     try {
-      const User: IUser = await getUserInfo(req)
+      await getUserInfo(req)
     } catch {
       result = false
     }
