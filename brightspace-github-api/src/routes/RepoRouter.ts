@@ -87,9 +87,9 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
   }
 
   const router: Router = express.Router();
-  router.get("/repos/:user", wrapEndpoint(getUserInfo));
-  router.get("/repos/:user/:repo", wrapEndpoint(getRepoArchive));
-  router.get("/repos/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
+  router.get("/repo/:user", wrapEndpoint(getUserInfo));
+  router.get("/repo/:user/:repo", wrapEndpoint(getRepoArchive));
+  router.get("/repo/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
   router.get("/install", redirectUser(getPublicURL));
   router.get("/installed/:user", wrapEndpoint(hasUserInstalled))
   return router
