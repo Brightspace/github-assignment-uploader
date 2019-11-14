@@ -11,7 +11,7 @@ const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Respons
       res.send(response);
     } catch (error) {
       console.error(error);
-      res.statusCode = 500;
+      res.statusCode = error.status ? error.status : 500;
       res.json({ message: error.toString(), status: res.statusCode });
     }
   }
@@ -71,9 +71,9 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
   }
 
   const router: Router = express.Router();
-  router.get("/repo/:user", wrapEndpoint(getUserInfo));
-  router.get("/repo/:user/:repo", wrapEndpoint(getRepoArchive));
-  router.get("/repo/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
+  router.get("/repos/:user", wrapEndpoint(getUserInfo));
+  router.get("/repos/:user/:repo", wrapEndpoint(getRepoArchive));
+  router.get("/repos/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
   router.get("/install", redirectUser(getPublicURL));
   return router
 }
