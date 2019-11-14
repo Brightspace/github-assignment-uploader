@@ -124,7 +124,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   passport.use(new Strategy({
       clientID: clientId,
       clientSecret: clientSecret,
-      callbackURL: "http://127.0.0.1:3000/app/auth/github/callback"
+      callbackURL: "/app/auth/github/callback"
     },
     function(accessToken: any, refreshToken: any, profile: any, done: any) {
       // asynchronous verification, for effect...
@@ -137,7 +137,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   router.use(bodyParser.urlencoded({ extended: true }));
   router.use(bodyParser.json());
   router.use(methodOverride());
-  router.use(session({ secret: 'keyboard cat', resave: false, saveUninitialized: false }));
+  router.use(session({ secret: 'maenad-coming-linesman', resave: false, saveUninitialized: false }));
   router.use(passport.initialize());
   router.use(passport.session());
 
