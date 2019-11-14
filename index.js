@@ -6,6 +6,8 @@ const { GitHubService } = require('./src/GitHubService')
  */
 module.exports = async app => {
   const githubService = GitHubService(app)
+  const clientId = process.env.CLIENT_ID
+  const clientSecret = process.env.CLIENT_SECRET
 
   const baseRouter = app.route('/app')
   baseRouter.use(createRepoRouter({
@@ -14,5 +16,5 @@ module.exports = async app => {
     getArchive: githubService.getRepoArchive,
     getPublicURL: githubService.getPublicUrl,
     getArchiveLink: githubService.getRepoArchiveLink
-  }))
+  }, clientId, clientSecret))
 }
