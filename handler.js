@@ -17,7 +17,5 @@ const options = {
 const probot = createProbot(options)
 const app = probot.load(probotApp)
 
-process.env['LAMBDA_ENV'] = 'true';
-
 // Send the probot express server to the serverless framework
 module.exports.probot = serverless(probot.server)

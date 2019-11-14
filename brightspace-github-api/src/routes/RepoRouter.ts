@@ -15,6 +15,8 @@ class StatusError extends Error {
   }
 }
 
+const isLambda: boolean = !!(process.env.LAMBDA_TASK_ROOT || false);
+
 const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Response) => void => {
   return async (req: Request, res: Response) => {
     try {
@@ -108,11 +110,10 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
 
   const ensureAuthenticated = (req: Request, res: Response, next: any) => {
     if (req.isAuthenticated()) { return next() }
-    if (process.env['LAMBDA_ENV'] !== 'true')
-    {
-      res.redirect('/app/login')
-    } else {
+    if (isLambda) {
       res.redirect('/dev/app/login')
+    } else {
+      res.redirect('/app/login') 
     }
   }
 
@@ -129,7 +130,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   passport.use(new Strategy({
       clientID: clientId,
       clientSecret: clientSecret,
-      callbackURL: '/app/auth/github/callback'
+      callbackURL: isLambda ? '/dev/app/auth/github/callback' : '/app/auth/github/callback'
     },
     function(accessToken: any, refreshToken: any, profile: any, done: any) {
       // asynchronous verification, for effect...
@@ -147,7 +148,11 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   router.use(passport.session())
 
   router.get('/login', (req: Request, res: Response) => {
-    res.redirect('/app/auth/github')
+    if (isLambda) {
+      res.redirect('/dev/app/auth/github')
+    } else {
+      res.redirect('/app/auth/github') 
+    }
   })
 
   router.get('/auth/github',
@@ -158,7 +163,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
     })
 
   router.get('/auth/github/callback', 
-    passport.authenticate('github', { failureRedirect: process.env['LAMBDA_ENV'] == 'true' ? '/dev/app/login' : '/app/login' }),
+    passport.authenticate('github', { failureRedirect: isLambda ? '/dev/app/login' : '/app/login' }),
     (req: Request, res: Response) => {
       res.status(200)
       res.send('OK')
