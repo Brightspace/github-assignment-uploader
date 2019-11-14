@@ -69,11 +69,28 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     const service: UserService = new UserService(username, userServiceImpl);
     return { url: await service.getArchiveLink(repoName) };
   }
+  
+  const hasUserInstalled = async (req: Request): Promise<{ installed: boolean }> => {
+    const username: string = req.params.user
+    if (!username) {
+      throw new Error("Did not include user in request.");
+    }
+
+    let result: boolean = true
+    try {
+      const User: IUser = await getUserInfo(req)
+    } catch {
+      result = false
+    }
+
+    return { installed: result };
+  }
 
   const router: Router = express.Router();
   router.get("/repos/:user", wrapEndpoint(getUserInfo));
   router.get("/repos/:user/:repo", wrapEndpoint(getRepoArchive));
   router.get("/repos/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
   router.get("/install", redirectUser(getPublicURL));
+  router.get("/installed/:user", wrapEndpoint(hasUserInstalled))
   return router
 }
