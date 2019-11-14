@@ -17,6 +17,13 @@ const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Respons
   }
 }
 
+const redirectUser = (logic: (req: Request) => Promise<{ url: URL }>): (req: Request, res: Response) => void => {
+  return async (req: Request, res: Response) => {
+    const data = await logic(req)
+    res.status(301).redirect(data.url.toString())
+  }
+}
+
 export const createRepoRouter = (userServiceImpl: IUserService): Router => {
   const getRepoArchive = async (req: Request): Promise<ISubmission> => {
     const username: string = req.params.user
@@ -67,6 +74,6 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
   router.get("/repo/:user", wrapEndpoint(getUserInfo));
   router.get("/repo/:user/:repo", wrapEndpoint(getRepoArchive));
   router.get("/repo/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
-  router.get("/publicurl", wrapEndpoint(getPublicURL));
+  router.get("/install", redirectUser(getPublicURL));
   return router
 }

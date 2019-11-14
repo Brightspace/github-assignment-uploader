@@ -7,7 +7,7 @@ const { GitHubService } = require('./src/GitHubService')
 module.exports = async app => {
   const githubService = GitHubService(app)
 
-  const baseRouter = app.route('/api')
+  const baseRouter = app.route('/app')
   baseRouter.use(createRepoRouter({
     getInstallationId: githubService.getInstallationID,
     listRepos: githubService.listReposForUser,
