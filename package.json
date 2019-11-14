@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@hapi/joi": "^16.1.7",
+    "body-parser": "^1.19.0",
     "got": "^9.6.0",
     "probot": "^9.6.4",
     "serverless-http": "^2.3.0"

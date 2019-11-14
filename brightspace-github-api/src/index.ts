@@ -11,7 +11,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(helmet());
 
-app.use("/app", createRepoRouter(new UserServiceStub()));
+//app.use("/app", createRepoRouter(new UserServiceStub()));
 
 app.get("/healthstatus", (req: Request, res: Response) => {
   res.json({ status: "healthy" });

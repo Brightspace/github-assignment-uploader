@@ -3,6 +3,17 @@ import { Request, Response, Router } from "express";
 import { UserService, IUserService } from "../model/UserService";
 import { User, IUser } from "../entities/User";
 import { ISubmission, Submission } from "../entities/Submission";
+import passport from "passport";
+import { Strategy } from "passport-github2";
+import bodyParser from "body-parser";
+import session from "express-session";
+import methodOverride from "method-override";
+
+class StatusError extends Error {
+  constructor(message: string, private status: number) {
+    super(message)
+  }
+}
 
 const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Response) => void => {
   return async (req: Request, res: Response) => {
@@ -24,7 +35,7 @@ const redirectUser = (logic: (req: Request) => Promise<{ url: URL }>): (req: Req
   }
 }
 
-export const createRepoRouter = (userServiceImpl: IUserService): Router => {
+export const createRepoRouter = (userServiceImpl: IUserService, clientId: string, clientSecret: string): Router => {
   const getRepoArchive = async (req: Request): Promise<ISubmission> => {
     const username: string = req.params.user
     const repoName: string = req.params.repo
@@ -33,6 +44,9 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     }
     if (!repoName) {
       throw new Error("Did not include repo name in request.");
+    }
+    if (req.user && req.user.username !== username) {
+      throw new StatusError("Not Authorized", 401);
     }
     const service: UserService = new UserService(username, userServiceImpl);
     const blob = await service.getRepoAsArchive(repoName);
@@ -51,6 +65,9 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     if (!username) {
       throw new Error("Did not include user in request.");
     }
+    if (req.user && req.user.username !== username) {
+      throw new StatusError("Not Authorized", 401);
+    }
     const service: UserService = new UserService(username, userServiceImpl);
     const installationId: string = await service.getInstallationIdForUser();
     const repos: string[] = await service.getAvailableReposForUser();
@@ -65,6 +82,9 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     }
     if (!repoName) {
       throw new Error("Did not include repo name in request.");
+    }
+    if (req.user && req.user.username !== username) {
+      throw new StatusError("Not Authorized", 401);
     }
     const service: UserService = new UserService(username, userServiceImpl);
     return { url: await service.getArchiveLink(repoName) };
@@ -86,11 +106,69 @@ export const createRepoRouter = (userServiceImpl: IUserService): Router => {
     return { installed: result };
   }
 
+  const ensureAuthenticated = (req: Request, res: Response, next: any) => {
+    if (req.isAuthenticated()) { return next(); }
+    res.redirect('/app/login')
+  }
+
   const router: Router = express.Router();
-  router.get("/repo/:user", wrapEndpoint(getUserInfo));
-  router.get("/repo/:user/:repo", wrapEndpoint(getRepoArchive));
-  router.get("/repo/:user/:repo/link", wrapEndpoint(getRepoArchiveLink));
+
+  passport.serializeUser((user, done) => {
+    done(null, user);
+  });
+
+  passport.deserializeUser((obj, done) => {
+    done(null, obj);
+  });
+
+  passport.use(new Strategy({
+      clientID: clientId,
+      clientSecret: clientSecret,
+      callbackURL: "http://127.0.0.1:3000/app/auth/github/callback"
+    },
+    function(accessToken: any, refreshToken: any, profile: any, done: any) {
+      // asynchronous verification, for effect...
+      process.nextTick(function () {
+        return done(null, profile);
+      });
+    }
+  ));
+
+  router.use(bodyParser.urlencoded({ extended: true }));
+  router.use(bodyParser.json());
+  router.use(methodOverride());
+  router.use(session({ secret: 'keyboard cat', resave: false, saveUninitialized: false }));
+  router.use(passport.initialize());
+  router.use(passport.session());
+
+  router.get('/login', (req: Request, res: Response) => {
+    res.redirect('/app/auth/github')
+  });
+
+  router.get('/auth/github',
+    passport.authenticate('github', { scope: [ 'user:email' ] }),
+    (req: Request, res: Response) => {
+      // The request will be redirected to GitHub for authentication, so this
+      // function will not be called.
+    });
+
+  router.get('/auth/github/callback', 
+    passport.authenticate('github', { failureRedirect: '/app/login' }),
+    (req: Request, res: Response) => {
+      res.status(200)
+      res.send("OK")
+    });
+
+  router.get('/logout', (req: Request, res: Response) => {
+    req.logout();
+    res.send("OK")
+  });
+
+  router.get("/repo/:user", ensureAuthenticated, wrapEndpoint(getUserInfo));
+  router.get("/repo/:user/:repo", ensureAuthenticated, wrapEndpoint(getRepoArchive));
+  router.get("/repo/:user/:repo/link", ensureAuthenticated, wrapEndpoint(getRepoArchiveLink));
   router.get("/install", redirectUser(getPublicURL));
   router.get("/installed/:user", wrapEndpoint(hasUserInstalled))
+
   return router
 }
