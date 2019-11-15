@@ -189,7 +189,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
         } else {
           // Take them back to their original request
           if(req.session && req.session.returnTo) {
-            res.redirect(req.session.returnTo)
+            res.redirect(isLambda ? `${lambdaPrefix}${req.session.returnTo}` : req.session.returnTo)
           } else {
             res.send('OK')
           }
