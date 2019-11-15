@@ -109,6 +109,11 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
     return { installed: result }
   }
 
+  const isLoggedIn = async (req: Request): Promise<{ authenticated: boolean }> => {
+    let result: boolean = req.isAuthenticated()
+    return { authenticated: result }
+  }
+
   const ensureAuthenticated = (req: Request, res: Response, next: any) => {
     if (req.isAuthenticated()) { 
       return next()
@@ -208,6 +213,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   router.get('/repo/:user/:repo/link', ensureAuthenticated, wrapEndpoint(getRepoArchiveLink))
   router.get('/install', redirectUser(getPublicURL))
   router.get('/installed/:user', wrapEndpoint(hasUserInstalled))
+  router.get('/logged_in', wrapEndpoint(isLoggedIn))
 
   return router
 }
