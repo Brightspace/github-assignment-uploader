@@ -8,6 +8,7 @@ import { Strategy } from 'passport-github2'
 import bodyParser from 'body-parser'
 import session from 'express-session'
 import methodOverride from 'method-override'
+import cors from "cors"
 
 class StatusError extends Error {
   constructor(message: string, private status: number) {
@@ -154,6 +155,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
     }
   ))
 
+  router.use(cors())
   router.use(bodyParser.urlencoded({ extended: true }))
   router.use(bodyParser.json())
   router.use(methodOverride())
@@ -208,9 +210,12 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   })
 
   // API Endpoints
-  router.get('/repo/:user', ensureAuthenticated, wrapEndpoint(getUserInfo))
-  router.get('/repo/:user/:repo', ensureAuthenticated, wrapEndpoint(getRepoArchive))
-  router.get('/repo/:user/:repo/link', ensureAuthenticated, wrapEndpoint(getRepoArchiveLink))
+  // router.get('/repo/:user', ensureAuthenticated, wrapEndpoint(getUserInfo))
+  // router.get('/repo/:user/:repo', ensureAuthenticated, wrapEndpoint(getRepoArchive))
+  // router.get('/repo/:user/:repo/link', ensureAuthenticated, wrapEndpoint(getRepoArchiveLink))
+  router.get('/repo/:user', wrapEndpoint(getUserInfo))
+  router.get('/repo/:user/:repo', wrapEndpoint(getRepoArchive))
+  router.get('/repo/:user/:repo/link', wrapEndpoint(getRepoArchiveLink))
   router.get('/install', redirectUser(getPublicURL))
   router.get('/installed/:user', wrapEndpoint(hasUserInstalled))
   router.get('/logged_in', wrapEndpoint(isLoggedIn))
