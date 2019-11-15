@@ -16,6 +16,7 @@ class StatusError extends Error {
 }
 
 const isLambda: boolean = !!(process.env.LAMBDA_TASK_ROOT || false);
+const lambdaPrefix: string = '/dev'
 
 const wrapEndpoint = (logic: (req: Request) => any): (req: Request, res: Response) => void => {
   return async (req: Request, res: Response) => {
@@ -109,9 +110,17 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   }
 
   const ensureAuthenticated = (req: Request, res: Response, next: any) => {
-    if (req.isAuthenticated()) { return next() }
+    if (req.isAuthenticated()) { 
+      return next()
+    }
+
+    // Set the return URL so we can come back to this request
+    if(req.session) {
+      req.session.returnTo = req.originalUrl
+    }
+
     if (isLambda) {
-      res.redirect('/dev/app/login')
+      res.redirect(`${lambdaPrefix}/app/login`)
     } else {
       res.redirect('/app/login') 
     }
@@ -130,7 +139,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
   passport.use(new Strategy({
       clientID: clientId,
       clientSecret: clientSecret,
-      callbackURL: isLambda ? '/dev/app/auth/github/callback' : '/app/auth/github/callback'
+      callbackURL: isLambda ? `${lambdaPrefix}/app/auth/github/callback` : '/app/auth/github/callback'
     },
     function(accessToken: any, refreshToken: any, profile: any, done: any) {
       // asynchronous verification, for effect...
@@ -149,7 +158,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
 
   router.get('/login', (req: Request, res: Response) => {
     if (isLambda) {
-      res.redirect('/dev/app/auth/github')
+      res.redirect(`${lambdaPrefix}/app/auth/github`)
     } else {
       res.redirect('/app/auth/github') 
     }
@@ -163,10 +172,29 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
     })
 
   router.get('/auth/github/callback', 
-    passport.authenticate('github', { failureRedirect: isLambda ? '/dev/app/login' : '/app/login' }),
-    (req: Request, res: Response) => {
-      res.status(200)
-      res.send('OK')
+    passport.authenticate('github', { failureRedirect: isLambda ? `${lambdaPrefix}/app/login` : '/app/login' }),
+    async (req: Request, res: Response) => {
+      if(req.user) {
+        // Check if the user has the app installed, if not, prompt them to install it
+        req.params.user = req.user.username
+        const data = await hasUserInstalled(req)
+        const installed = data.installed
+
+        if(!installed) {
+          if (isLambda) {
+            res.redirect('/dev/app/install')
+          } else {
+            res.redirect('/app/install') 
+          }
+        } else {
+          // Take them back to their original request
+          if(req.session && req.session.returnTo) {
+            res.redirect(req.session.returnTo)
+          } else {
+            res.send('OK')
+          }
+        }
+      }
     })
 
   router.get('/logout', (req: Request, res: Response) => {
@@ -174,6 +202,7 @@ export const createRepoRouter = (userServiceImpl: IUserService, clientId: string
     res.send('OK')
   })
 
+  // API Endpoints
   router.get('/repo/:user', ensureAuthenticated, wrapEndpoint(getUserInfo))
   router.get('/repo/:user/:repo', ensureAuthenticated, wrapEndpoint(getRepoArchive))
   router.get('/repo/:user/:repo/link', ensureAuthenticated, wrapEndpoint(getRepoArchiveLink))
