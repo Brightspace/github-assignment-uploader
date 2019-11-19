@@ -1,6 +1,6 @@
 # GitHub Assignment Uploader for Brightspace
 
-> A GitHub app built with [Probot](https://github.com/probot/probot). Wraps the GitHub API to easily fetch entire user repositories as a ZIP archive. Built to support the GitHub repository uploader within the Brightspace assignment file uploader (coming soon™).
+> A GitHub app built with [Probot](https://github.com/probot/probot). Wraps the GitHub API to easily fetch entire user repositories as a ZIP archive. Built to support the GitHub repository uploading within the assignment file uploader in Brightspace (coming soon™).
 
 # Table of Contents
 
