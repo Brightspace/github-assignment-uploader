@@ -18,11 +18,11 @@
 API Endpoints that this application provides with descriptions.
 
 ```
-GET /app/login - Redirect the User to the application login screen / Prompt them to install the app (if they haven't already).
-GET /app/logged_in - Is the user logged in?
-GET /app/repo/:user - List all of the repositories that `:user` has granted the app access to read.
-GET /app/repo/:user/:repo - Fetch the ZIP blob of `:user\:repo`.
-GET /app/repo/:user/:repo/link - Fetch a link to the ZIP file of `:user\:repo` (Link is only valid for 5 minutes for private repositories).
+GET /app/login - Redirect the user to the application login screen / Prompt them to install the app (if they haven't already).
+GET /app/logged_in - Is the user logged in to the app?
+GET /app/repo/:user - List all of the repositories that :user has granted the app access to read.
+GET /app/repo/:user/:repo - Fetch the ZIP blob of :user/:repo.
+GET /app/repo/:user/:repo/link - Fetch a link to the ZIP file of :user/:repo (Link is only valid for 5 minutes for private repositories).
 ```
 
 ## Installation
@@ -98,7 +98,7 @@ serverless logs -f probot -t
 ## Tests
 
 Tests for this project are written with [Jest](https://facebook.github.io/jest/) and [Nock](https://github.com/nock/nock).
-Currently the tests for the Probot application are outdated and written for different repository and need to be updated.
+**Currently the tests for the Probot application are outdated and written for different repository and need to be updated.**
 
 ## Contributing
 
