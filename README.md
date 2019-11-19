@@ -1,4 +1,4 @@
-# Github Assignment Uploader for Brightspace
+# GitHub Assignment Uploader for Brightspace
 
 More documentation coming soon...
 
