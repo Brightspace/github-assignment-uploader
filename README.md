@@ -20,6 +20,7 @@ API Endpoints that this application provides with descriptions.
 ```
 GET /app/login - Redirect the user to the application login screen / Prompt them to install the app (if they haven't already).
 GET /app/logged_in - Is the user logged in to the app?
+GET /app/installed/:user - Has the user installed the app?
 GET /app/repo/:user - List all of the repositories that :user has granted the app access to read.
 GET /app/repo/:user/:repo - Fetch the ZIP blob of :user/:repo.
 GET /app/repo/:user/:repo/link - Fetch a link to the ZIP file of :user/:repo (Link is only valid for 5 minutes for private repositories).
