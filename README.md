@@ -22,7 +22,7 @@ GET /app/login - Redirect the User to the application login screen / Prompt them
 GET /app/logged_in - Is the user logged in?
 GET /app/repo/:user - List all of the repositories that `:user` has granted the app access to read.
 GET /app/repo/:user/:repo - Fetch the ZIP blob of `:user\:repo`.
-GET /app/repo/:user/:repo/link - Fetch a link to the ZIP fle of `:user\:repo` (Link is only valid for 5 minutes for private repositories.
+GET /app/repo/:user/:repo/link - Fetch a link to the ZIP file of `:user\:repo` (Link is only valid for 5 minutes for private repositories.
 ```
 
 ## Installation
